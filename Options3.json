@@ -1,0 +1,19 @@
+{
+        "ignored": {
+                "Custom":null,
+                "Touhou":null,
+                "Honkai Impact":null,
+                "RWBY":null,
+                "Vocaloids":null,
+                "Hololive":null
+        },
+        "end": {
+                "Kantai Collection":"_(kantai_collection)",
+                "Azur Lane":"_(azur_lane)",
+                "Overwatch":"_(overwatch)"
+        },
+        "busts": {
+                "Kantai Collection":"kancolle",
+                "Azur Lane":"azurlane"
+        }
+}
