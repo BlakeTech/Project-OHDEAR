@@ -15,7 +15,9 @@ Each file to source from should just contain the variable, I.E. the thing that c
 Special note for Kancolle and Azur Lane searchers: There is a special extra flag for you to also get the results from Paizukan, and return results of bust size of all your favourite ships. But due to the owner of said website being a bit paranoid as of late, it is suggested that you only do this once every so often, in case they assume a DDOS. Mitigations are in place to only request the results when you choose to do so, and it's up to you to not be an arse and spam the server with requests by executing the script multiple times, and thus leading to the rest of us being unable to get the results.
 
 Improvement points:
-1. Look into use of classes. Would that help?
+
+~1. Look into use of classes. Would that help?~ 
+ Forget it. The whole thing is practically a class. Don't think I see a need for it.
 
 2. Look into multiprocessing. Yes, it works, but there's no status update, so no cool statusbar. Maybe process instead of pool? 
 
