@@ -1,213 +1,167 @@
 #!/usr/bin/python3
 
 #Script written by JasperTecHK, find it on my github! (If you didn't...somehow....)
-#O.H.D.E.A.R. Opensource Heuristics for the DEtermination of Explicit Artwork Ratios
+#TBF/H this entire script is a bodge. The first variant was too. But this is a larger bodge, since this is literally a person who has not looked at the manual and decided to build a web scraper. Then again, it is the same person that decided to build the first version in bash just so a certain someone could save time. So who's the idiot now, ha!
+#...Get on with the script, instead of typing your comments, no one is going to see this anyways.
+#...Please send help.
+#O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
-from multiprocessing import Pool
-from lxml import html		#Nonstandard Library
-import linecache
-import json
-import requests
-import time
-import tkinter			#Nonstandard Library
-import PySimpleGUI as sg	#Nonstandard Library
+from multiprocessing import Pool	#Parallel processing
+import json							#Parseing the options menu
+import requests						#Web requests
+import time							#Time function duration
+import os							#OS level handling. Might not need it?
+import re							#Regex Library. Might not need it?
+import shutil						#Cloning file.
+import pandas as pd					#Nonstandard Library. Excel processor
+import openpyxl						#NOnstandard Library. Pandas augment.
+import tkinter						#Nonstandard Library. GUI maker.
+import PySimpleGUI as sg			#Nonstandard Library. Tkinter augment.
 
 #Defining all the variables.
-url = "https://danbooru.donmai.us/counts/posts?tags="
-bustsurl = "https://paizukan.com/html/"
-count = 0
-#global storedict
-#storedict = 0
+url = 'https://danbooru.donmai.us/counts/posts.json?tags='
+bustsurl = 'https://paizukan.com/html/'
+secend = '+rating:s'
+progbarstate = 0
+
 #PySimpleGUI Themes
-sg.theme('Dark Blue 3')
+sg.theme('Purple')
 
 #DEFining all the functions. Eh? Eh?
 #... I'll show myself out.
-def Dirscan ():	#Directory Scan. Used to allow user to locate the file to scrape.
+def dirscan ():	#Directory Scan. Used to allow user to locate the file to scrape.
 	layout = [[sg.Text('Which list would you like to scour?')],
-		[sg.InputText(), sg.FileBrowse(file_types=(""))],	# file_types here uses "" because I don't want to deal with cutting the file extention off, and the "All types", is really more of a ".", i.e. all files with an extention.
+		[sg.InputText(), sg.FileBrowse(file_types=(""))],	# file_types here uses "" because I don't want to deal with cutting the file extention off, and the "All types", is really more of a ".", i.e. all files with an extention. Also, because I hate adding the extentions. F/Bite me.
 		[sg.Button('Confirm'), sg.Button('Cancel')]]
-	window = sg.Window('Danbooru Comparison Script 2.0', layout)
+	window = sg.Window('O.H.D.A.M.N.', layout)
 	event, values = window.read()
-	if event is None or event == 'Cancel':
-		sg.popup('Cancelled.')
-		exit()
-	elif event == 'Confirm':
-		sg.popup('Confirmed!')
-		global filechoice
-		filechoice = values[0]
+	conf = 0
+	loop = 0
+	while conf == 0:
+		if not values[0] and not event in (None, 'Cancel'):
+			sg.popup('No file selected. Due to limitations of GUI, script must die.')
+			exit()
+		elif event in (None, 'Cancel'):
+			sg.popup('User closed script. :(')
+			exit()
+		elif event == 'Confirm':
+			sg.popup('Confirmed!')
+			filechoice = values[0]
+			conf = 1
 	window.close()
+	del window
+	return filechoice
 
-def Setup ():	#Setup. Might not show up for the end user, depends if the file to scrape is on file.
-	with open('Options3.json') as f:
+def setup (filechoice):	#Setup. Might not show up for the end user, depends if the file to scrape is on file.
+	with open('Options.json') as f:
 		data=json.load(f)
-		global filechoice
-		global end
-		global busts
 		filtchk=filechoice.split('/')[-1]
-		if filtchk in data["busts"]:
-			busts = data["busts"][filtchk]
+		busts, end = "", ""
 		if filtchk in data["ignored"]:
 			end = ""
+			progloop = 2
 		elif filtchk in data["end"]:
 			end = data["end"][filtchk]
+			progloop = 2
 		else:
 			layout = [[sg.Text('Would you like to add any end tags to your list?')],
 				[sg.InputText()],
 				[sg.Button('Add this!'),sg.Button('Nope!')]]
-			window = sg.Window('Danbooru Comparison Script 2.0', layout)
+			window = sg.Window('O.H.D.A.M.N.', layout)
 			event, values = window.read()
-			if event is None or event == 'Nope!':
+			if event in (None,'Nope!'):
 				sg.popup('Understood!')
 				data["ignored"][str(filtchk)] = None
-				with open('Options3.json', 'w') as g:
+				with open('Options.json', 'w') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
-				g.closed
 				end = ""
 			elif event == 'Add this!':
 				sg.popup('Added to the settings!')
 				data["end"][str(filtchk)] = values[0]
-				with open('Options3.json', 'w') as g:
+				with open('Options.json', 'w') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
-				g.closed
 				end = data["end"][filtchk]
+			if filtchk in data["busts"]:
+				busts = data["busts"][filtchk]
 			window.close()
-	f.closed
+			del window
+		return busts, end
 
-def ReqParse (): # Requests url setup here.
+def reqParse (filechoice): # Requests url setup here.
 	with open(filechoice) as r:
-		global query
-		global j
-		global count
-		global hold
 		query = []
-		hold = {}
-		if end == "":
-			for i in r:
-				count += 1
-				j = i.rstrip("\n")
-				link = url + j
-				query.append(link)	
-				hold[j] = None
-		else:
-			for i in r:
-				count += 1
-				j = i.rstrip("\n")
-				link = url + j + end
-				query.append(link)
-				hold[j] = None
-	r.closed
+		for line in r:
+			line = line.rstrip("\n")
+			link = url + line + end
+			query.append(link)
+	return query
 
-#def ReqProc (toget): # Requests urls and processes it.
-#	res = requests.get(toget)
-#	tree = html.fromstring(res.content)
-#	dbrest = tree.xpath('//div[@id="a-posts"]/text()')	#It stands for danbooru result temp. Git yer mind outta' gutter.
-#	dbres = dbrest[1]
-#	dbres = dbres.replace('\n', '').replace(' ', '')	#Processes and spits out the number.
-#	j=toget.replace(url, '')
-#	if not end == "":
-#		j=j.replace(end, '')
-#	print(dbres)
-#	kpres = {j:dbres}
-#	if hold[j]:
-#		dbres = dbres.replace(':', ',')
-#		hold[j].append(dbres)
-#	else:
-#		dbres = dbres.replace(':', '')
-#		print(dbres)
-#		hold[j]=dbres
-	
-#	print(hold)
+def reqParseS (infodmp):	#Appending "s" tag
+	query = []
+	for line in infodmp:
+		link = line + secend
+		query.append(link)
+	return query
 
-#def Loading ():
-	
-#	while lode <= count
+def reqProc (toget): # Requests urls and processes it. Asyncronous Multiprocessing. The bodged way.
+	response = requests.get(toget)
+	response = response.text
+	response = response.replace('{"counts": {"posts"', '').replace('}}', '')
+	name=toget.replace(url, '')				#Also gets rid of the url.
+	name=name.replace(secend, '')
+	if not end == '':
+		name=name.replace(end, '')
+	if 'hold' in globals():
+		response = response.replace(': ', ',')
+	else:
+		response = response.replace(': ', '')
+	return name,response
 
-def ReqProc (garb): # Requests urls and processes it.
-	global hold
-	hold = {}
-	for i in query:
-		res = requests.get(i)
-		tree = html.fromstring(res.content)
-		dbrest = tree.xpath('//div[@id="a-posts"]/text()')      #It stands for danbooru result temp. Git yer mind outta' gutter.
-		dbres = dbrest[1]
-		dbres = dbres.replace(':', '').replace('\n', '').replace(' ', '')
-		j=i.replace(url, '')
-		if not end == "":
-			j=j.replace(end, '')
-		kpres = {j:dbres}
-		hold.update(kpres)
-	print(hold)
-
-#def Libhold(rez): #Turns out, multiprocessing can be a bit tricky....
-#	if storedict == 0:
-#		i = 0
-#		global store1
-#		global store2
-#		global storedict
-#		global storecount
-#		store1 = {}
-#		store2 = {}
-#		storedict = 1
-#		storecount = 0
-#	elif storedict == 1:
-#		if storecount <= count:
-#			store1.update(rez)
-#			global storecount
-#			storecount += 1
-#			if storecount > count:
-#				global storedict
-#				global storecount
-#				storedict = 2
-#				storecount = 0
-#				print(store1)
-#	elif storedict == 2:
-#		if storecount <= count:
-#			store2.update(rez)
-#			global storecount
-#			storecount += 1
-#			if storecount > count:
-#				print(store1)
-#				print(store2)
+def dictmerge(d1, d2):
+	filename = filechoice.replace('url', 'results') + '.xlsx'
+	print(filename)
+	print(d1)
+	print(d2)
 
 
-#Legacy code. I've always wanted to make a hashbox!		
-#################################################################################################
-#	print("Which list would you like to scour?")						#
-#	with open('Options2.json') as f:							#
-#		data = json.load(f)								#
-#		for i in range(int(data["total"])):						#
-#			[sg.text('Press {n} for {t}'.format(n=i,t=data[str(i)]["call"]))],	#
-#	f.closed										#
-#	sel = input()										#
-#	conf = 0										#
-#	OptionsMenu(sel)									#
-#												#
-#def OptionsMenu (sel):										#
-#	if sel == 0:										#	
-#		print("Who do you want to search for?")						#
-#		sel = input()									#
-#	elif(sel.isdigit()):									#
-#		optvals = linecache.getline(Options,sel)					#
-#		print(optvals)									#
-#	else:											#
-#		print("Your query is invalid.")							#
-#		exit()										#
-#	print("You want to open {}, correct?".format(sel))					#
-#Script start!											#
-#################################################################################################
+#	with open(filename, 'w+') as f:
+#		w = csv.writer(f)
+#		w.writerows(d1.items())
+#		for i in dict.item():
+#			item = str(i)
+#			push = re.sub('[^a-zA-Z0-9\n\,]', '', item)
+#			push = item
+#			w.writerow(push)
 
-Dirscan()
-Setup()
-ReqParse()
+filechoice = dirscan()
+time1 = time.time()
+busts, end = setup(filechoice)
+query1 = reqParse(filechoice)
 asycry = Pool()
-#global hold
-#hold = {}
-asycry.map(ReqProc,query)
-#while ulock == 1:
-#	if count == 0:
-#		print(hold)
-#		ulock = 0	
-#ReqProc()
-print(hold)
+hold1 = asycry.map(reqProc, query1)
+hold1 = dict(hold1)
+query2 = reqParseS(query1)
+hold2 = asycry.map(reqProc, query2)
+hold2 = dict(hold2)
+dictmerge(hold1,hold2)
+#if not busts == '':
+#	reqProcB()
+
+
+#if os.name == 'nt':
+#	name = filechoice.rsplit('\', 1)
+#elif os.name == 'posix':
+#	name == filechoice.rsplit('/, 1)
+#purgetofile(filechoice, dictmerged)
+time1 = time.time() - time1
+time1 = round(time1)
+print(time1)
+#print(dictmerged)
+#for k, v in hold.items():
+#    print(f"{k},{v}")
+#progstat = 1
+#print(hold1)
+#print("\n\n")
+#print(hold2)
+#del window
