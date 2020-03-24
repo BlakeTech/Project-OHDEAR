@@ -7,17 +7,16 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
-from multiprocessing import Pool	#Parallel processing
-import json							#Parseing the options menu
-import requests						#Web requests
-import time							#Time function duration
-import os							#OS level handling. Might not need it?
-import re							#Regex Library. Might not need it?
-import shutil						#Cloning file.
-import pandas as pd					#Nonstandard Library. Excel processor
-import openpyxl						#NOnstandard Library. Pandas augment.
-import tkinter						#Nonstandard Library. GUI maker.
-import PySimpleGUI as sg			#Nonstandard Library. Tkinter augment.
+from multiprocessing import Pool							#Parallel processing
+import json													#Parseing the options menu
+import requests												#Web requests
+import time													#Time function duration
+import os													#OS level handling. Might not need it?
+import shutil												#Cloning file.
+import pandas as pd											#Nonstandard Library. Excel processor
+from openpyxl import load_workbook, Workbook				#Nonstandard Library. Pandas augment.
+import tkinter												#Nonstandard Library. GUI maker.
+import PySimpleGUI as sg									#Nonstandard Library. Tkinter augment.
 
 #Defining all the variables.
 url = 'https://danbooru.donmai.us/counts/posts.json?tags='
@@ -47,17 +46,19 @@ def dirscan ():	#Directory Scan. Used to allow user to locate the file to scrape
 			exit()
 		elif event == 'Confirm':
 			sg.popup('Confirmed!')
-			filechoice = values[0]
+			filechosen = values[0]
 			conf = 1
 	window.close()
 	del window
-	return filechoice
+	return filechosen
 
 def setup (filechoice):	#Setup. Might not show up for the end user, depends if the file to scrape is on file.
 	with open('Options.json') as f:
 		data=json.load(f)
 		filtchk=filechoice.split('/')[-1]
 		busts, end = "", ""
+		if filtchk in data["busts"]:
+			busts = data["busts"][filtchk]
 		if filtchk in data["ignored"]:
 			end = ""
 			progloop = 2
@@ -82,8 +83,6 @@ def setup (filechoice):	#Setup. Might not show up for the end user, depends if t
 				with open('Options.json', 'w') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
 				end = data["end"][filtchk]
-			if filtchk in data["busts"]:
-				busts = data["busts"][filtchk]
 			window.close()
 			del window
 		return busts, end
@@ -91,11 +90,13 @@ def setup (filechoice):	#Setup. Might not show up for the end user, depends if t
 def reqParse (filechoice): # Requests url setup here.
 	with open(filechoice) as r:
 		query = []
+		names = []
 		for line in r:
 			line = line.rstrip("\n")
 			link = url + line + end
 			query.append(link)
-	return query
+			names.append(line)
+	return query, names
 
 def reqParseS (infodmp):	#Appending "s" tag
 	query = []
@@ -107,61 +108,68 @@ def reqParseS (infodmp):	#Appending "s" tag
 def reqProc (toget): # Requests urls and processes it. Asyncronous Multiprocessing. The bodged way.
 	response = requests.get(toget)
 	response = response.text
-	response = response.replace('{"counts": {"posts"', '').replace('}}', '')
-	name=toget.replace(url, '')				#Also gets rid of the url.
-	name=name.replace(secend, '')
-	if not end == '':
-		name=name.replace(end, '')
-	if 'hold' in globals():
-		response = response.replace(': ', ',')
+	response = response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', '')
+	return response
+
+def reqProcB(tag):
+	if not tag == '':
+		layout = [[sg.Text('Would you like to search for bust size too?')],
+				  [sg.Button('Hell Yes!'), sg.Button('Nah...')]]
+		window = sg.Window('O.H.D.A.M.N.', layout)
+		event, garbval = window.read()
+		if event in ('Hell Yes!'):
+			sg.popup('Please use this responsibly, as to not DOS attack the server!')
+			toget = bustsurl + tag
+			bust = []
+			cup = []
+			check1 = 'data-bust="'
+			check2 = 'data-cup="'
+			response = requests.get(toget)
+			response = response.text
+			for line in response.splitlines():
+				chunk = line.split(' ')
+				for i in chunk:
+					if check1 in i:
+						t1 = i.replace(check1, '').replace('"','')
+						cup.append(t1)
+					elif check2 in i:
+						t1 = i.replace(check2, '').replace('"','')
+						bust.append(t1)
+		elif event in (None, 'Nah...'):
+			sg.popup('Alright then.')
+		window.close()
+		del window
 	else:
-		response = response.replace(': ', '')
-	return name,response
+		bust = []
+		cup = []
+	return bust, cup
 
-def dictmerge(d1, d2):
+def dictmerge(d1, d2, d3, d4, d5):
 	filename = filechoice.replace('url', 'results') + '.xlsx'
-	print(filename)
-	print(d1)
-	print(d2)
-
-
-#	with open(filename, 'w+') as f:
-#		w = csv.writer(f)
-#		w.writerows(d1.items())
-#		for i in dict.item():
-#			item = str(i)
-#			push = re.sub('[^a-zA-Z0-9\n\,]', '', item)
-#			push = item
-#			w.writerow(push)
+#	wb = load.workbook(filename)
+#	ws = wb.get_sheet_by_name('Sheet1')
+	wb=Workbook()
+	ws=wb.active
+	if busts == '':
+		for item in zip(d1,d2,d3):
+			ws.append(item)
+	else:
+		for item in zip(d1,d2,d3,d4,d5):
+			ws.append(item)
+	wb.save(filename)
 
 filechoice = dirscan()
 time1 = time.time()
 busts, end = setup(filechoice)
-query1 = reqParse(filechoice)
+query1, list1 = reqParse(filechoice)
 asycry = Pool()
-hold1 = asycry.map(reqProc, query1)
-hold1 = dict(hold1)
+list2= asycry.map(reqProc, query1)
+list2 = list(list2)
 query2 = reqParseS(query1)
-hold2 = asycry.map(reqProc, query2)
-hold2 = dict(hold2)
-dictmerge(hold1,hold2)
-#if not busts == '':
-#	reqProcB()
-
-
-#if os.name == 'nt':
-#	name = filechoice.rsplit('\', 1)
-#elif os.name == 'posix':
-#	name == filechoice.rsplit('/, 1)
-#purgetofile(filechoice, dictmerged)
+list3 = asycry.map(reqProc, query2)
+list3 = list(list3)
+list4, list5 = reqProcB(busts)
+dictmerge(list1, list2, list3, list4, list5)
 time1 = time.time() - time1
 time1 = round(time1)
 print(time1)
-#print(dictmerged)
-#for k, v in hold.items():
-#    print(f"{k},{v}")
-#progstat = 1
-#print(hold1)
-#print("\n\n")
-#print(hold2)
-#del window
