@@ -7,22 +7,20 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
-from multiprocessing import Pool							#Parallel processing
-import json													#Parseing the options menu
-import requests												#Web requests
-import time													#Time function duration
-import os													#OS level handling. Might not need it?
-import shutil												#Cloning file.
-import pandas as pd											#Nonstandard Library. Excel processor
-from openpyxl import load_workbook, Workbook				#Nonstandard Library. Pandas augment.
-import tkinter												#Nonstandard Library. GUI maker.
-import PySimpleGUI as sg									#Nonstandard Library. Tkinter augment.
+from multiprocessing.dummy import Pool							#parallel processing, using threads instead. Makes sense for this since task is IO bound.
+import json														#Parsing the options menu
+import requests													#Web requests. May consider selenium in the future.
+import time														#Time function duration. Not necessary at all. Just for benchmarking.
+import string													#Got lazy. Predefined list of characters. Used for alphanumeric translation.
+import pandas as pd												#Nonstandard Library. Excel processor
+from openpyxl import Workbook									#Nonstandard Library. Pandas augment?
+import tkinter													#Nonstandard Library. GUI maker.
+import PySimpleGUI as sg										#Nonstandard Library. Tkinter augment.
 
 #Defining all the variables.
 url = 'https://danbooru.donmai.us/counts/posts.json?tags='
 bustsurl = 'https://paizukan.com/html/'
 secend = '+rating:s'
-progbarstate = 0
 
 #PySimpleGUI Themes
 sg.theme('Purple')
@@ -31,7 +29,7 @@ sg.theme('Purple')
 #... I'll show myself out.
 def dirscan ():	#Directory Scan. Used to allow user to locate the file to scrape.
 	layout = [[sg.Text('Which list would you like to scour?')],
-		[sg.InputText(), sg.FileBrowse(file_types=(""))],	# file_types here uses "" because I don't want to deal with cutting the file extention off, and the "All types", is really more of a ".", i.e. all files with an extention. Also, because I hate adding the extentions. F/Bite me.
+		[sg.InputText(), sg.FileBrowse(file_types=(""), initial_folder='./url')],	# file_types here uses "" because I don't want to deal with cutting the file extention off, and the "All types", is really more of a ".", i.e. all files with an extention. Also, because I hate adding the extentions. F/Bite me.
 		[sg.Button('Confirm'), sg.Button('Cancel')]]
 	window = sg.Window('O.H.D.A.M.N.', layout)
 	event, values = window.read()
@@ -91,12 +89,14 @@ def reqParse (filechoice): # Requests url setup here.
 	with open(filechoice) as r:
 		query = []
 		names = []
+		count = int()
 		for line in r:
 			line = line.rstrip("\n")
 			link = url + line + end
 			query.append(link)
 			names.append(line)
-	return query, names
+			count = count + 1
+	return query, names, count
 
 def reqParseS (infodmp):	#Appending "s" tag
 	query = []
@@ -111,6 +111,14 @@ def reqProc (toget): # Requests urls and processes it. Asyncronous Multiprocessi
 	response = response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', '')
 	return response
 
+#def progBar (count):
+#	emerxit = int()
+#	while not emerxit > count:
+#		status = int(progbarstate.value)
+#		while not status >= count:
+#			print(status)
+#			emerxit += 1
+
 def reqProcB(tag):
 	if not tag == '':
 		layout = [[sg.Text('Would you like to search for bust size too?')],
@@ -122,10 +130,12 @@ def reqProcB(tag):
 			toget = bustsurl + tag
 			bust = []
 			cup = []
+			did = '1'
 			check1 = 'data-bust="'
 			check2 = 'data-cup="'
 			response = requests.get(toget)
 			response = response.text
+			time2 = time.time()
 			for line in response.splitlines():
 				chunk = line.split(' ')
 				for i in chunk:
@@ -135,41 +145,69 @@ def reqProcB(tag):
 					elif check2 in i:
 						t1 = i.replace(check2, '').replace('"','')
 						bust.append(t1)
+			time2 = time.time() - time2
+			print(str(time2))
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.')
+			bust = []
+			cup = []
+			did = '0'
+			time2 = '0'
 		window.close()
 		del window
 	else:
 		bust = []
 		cup = []
-	return bust, cup
+		did = '0'
+		time2 = '0'
+	return bust, cup, did, time2
 
-def dictmerge(d1, d2, d3, d4, d5):
-	filename = filechoice.replace('url', 'results') + '.xlsx'
-#	wb = load.workbook(filename)
-#	ws = wb.get_sheet_by_name('Sheet1')
+def dictmerge(d1, d2, d3, d4, d5, ckval):
+#	templatedir = './results/'
+	filetarget = filechoice.replace('url', 'results') + '.xlsx'
+	h1 = ['Character Name']
+	h2 = ['Total']
+	h3 = ['Pure']
+	h4 = ['Bust Size']
+	h5 = ['Bust Rank']
+	h6 = ['Impure']
+	h7 = ['Purity Ratio']
+#	f1 = ['']#Purity Ratio Formula
+#	f2 = ['']#Total - Pure
 	wb=Workbook()
 	ws=wb.active
-	if busts == '':
+	if ckval == '0':
+#		for item in zip(h1,h2,h3,h6,h7):
+		for item in zip(h1, h2, h3):
+			ws.append(item)
 		for item in zip(d1,d2,d3):
 			ws.append(item)
 	else:
-		for item in zip(d1,d2,d3,d4,d5):
+#		for item in zip(h1,h2,h3,h6,h4,h5,h7):
+		for item in zip(h1, h2, h3, h4, h5):
 			ws.append(item)
-	wb.save(filename)
+#		for item in zip(d1,d2,d3,f2,d5,d4,f1):
+		for item in zip(d1, d2, d3, d5, d4):
+			ws.append(item)
+
+	ws.auto_filter.ref = ws.dimensions
+	wb.save(filetarget)
 
 filechoice = dirscan()
 time1 = time.time()
 busts, end = setup(filechoice)
-query1, list1 = reqParse(filechoice)
+query1, list1, total = reqParse(filechoice)
 asycry = Pool()
 list2= asycry.map(reqProc, query1)
+#print(list2)
 list2 = list(list2)
 query2 = reqParseS(query1)
 list3 = asycry.map(reqProc, query2)
 list3 = list(list3)
-list4, list5 = reqProcB(busts)
-dictmerge(list1, list2, list3, list4, list5)
 time1 = time.time() - time1
+list4, list5, didchk, time2 = reqProcB(busts)
+dictmerge(list1, list2, list3, list4, list5, didchk)
+time2 = round(int(time2))			#This is a joke. This value is too short, so it ends up not even mattering, unless really, REALLY large numbers. Which is basically not happening.
 time1 = round(time1)
-print(time1)
+time2 = time2 + time1
+print('Finished in', time2)
