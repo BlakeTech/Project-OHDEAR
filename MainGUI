@@ -85,10 +85,13 @@ def setup (filechoice):	#Setup. Might not show up for the end user, depends if t
 			del window
 		return busts, end
 
-def reqParse (filechoice): # Requests url setup here.
+def reqParse (filechoice): # Requests url setup here. As well as anything else that happens to need cycles matching number of items in list.
 	with open(filechoice) as r:
 		query = []
 		names = []
+		#f1 = []
+		#fc = 1
+		#f2 = []
 		count = int()
 		for line in r:
 			line = line.rstrip("\n")
@@ -96,7 +99,10 @@ def reqParse (filechoice): # Requests url setup here.
 			query.append(link)
 			names.append(line)
 			count = count + 1
-	return query, names, count
+	#		f1.append("'=$C',fc,'/$B', fc,'*100'")
+	#		f2.append("'=$B',fc,'-$C',fc")
+	#		fc += 1
+	return query, names, count #, f1, f2
 
 def reqParseS (infodmp):	#Appending "s" tag
 	query = []
@@ -111,13 +117,12 @@ def reqProc (toget): # Requests urls and processes it. Asyncronous Multiprocessi
 	response = response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', '')
 	return response
 
-#def progBar (count):
-#	emerxit = int()
-#	while not emerxit > count:
-#		status = int(progbarstate.value)
-#		while not status >= count:
-#			print(status)
-#			emerxit += 1
+#def progBar ():
+#	while not progstat = progtotal:
+#If you're reading this, it's too late. I'm done. I can't take it anymore.
+#Coincidentally, "If you're reading this, it's too late" is actually a pretty decent book. I suggest reading this.
+#And a note to future me. READ A F#*$!NG TUTORIAL ON HOW TO PROGRAM (IN PYTHON), YOU TWIT.
+#...Thank you all for coming to my talk. Have a wonderful rest of your day/evening/other temporal state. If you somehow reached here before reading the execution phase... Hi! and sorry about the future ramble. Or is it the past?
 
 def reqProcB(tag):
 	if not tag == '':
@@ -146,7 +151,6 @@ def reqProcB(tag):
 						t1 = i.replace(check2, '').replace('"','')
 						bust.append(t1)
 			time2 = time.time() - time2
-			print(str(time2))
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.')
 			bust = []
@@ -162,52 +166,73 @@ def reqProcB(tag):
 		time2 = '0'
 	return bust, cup, did, time2
 
-def dictmerge(d1, d2, d3, d4, d5, ckval):
-#	templatedir = './results/'
+def convProc(v1, v2, v3):
+	purity = []
+	nsfw = []
+	convresult = []
+	convdict = {}
+	tempnum = 2
+	tempalph = string.ascii_uppercase
+	for i in tempalph:
+		convdict[str(tempnum)] = i
+		tempnum += 1
+	convdict['0'] = 'AAA'
+	convdict['1'] = 'AA'
+
+	for j in v3:
+		convresult.append(convdict.get(j , "The bust is over 9000! Invalid result!"))
+
+	for t, p in zip(v1, v2):
+		purity.append(str(int(p)/int(t)*100))
+		nsfw.append(int(t)-int(p))
+
+	return purity, nsfw, convresult
+
+def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval): #List Merge. Definitely could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
 	filetarget = filechoice.replace('url', 'results') + '.xlsx'
-	h1 = ['Character Name']
+	h1 = ['Character Name']							#...There has to be a better way than this.
 	h2 = ['Total']
 	h3 = ['Pure']
 	h4 = ['Bust Size']
 	h5 = ['Bust Rank']
 	h6 = ['Impure']
 	h7 = ['Purity Ratio']
-#	f1 = ['']#Purity Ratio Formula
-#	f2 = ['']#Total - Pure
 	wb=Workbook()
 	ws=wb.active
 	if ckval == '0':
-#		for item in zip(h1,h2,h3,h6,h7):
-		for item in zip(h1, h2, h3):
+		for item in zip(h1,h2,h3,h6,h7):
 			ws.append(item)
-		for item in zip(d1,d2,d3):
+		for item in zip(d1,d2,d3,d6,d5):
 			ws.append(item)
 	else:
-#		for item in zip(h1,h2,h3,h6,h4,h5,h7):
-		for item in zip(h1, h2, h3, h4, h5):
+		for item in zip(h1,h2,h3,h6,h4,h5,h7):
 			ws.append(item)
-#		for item in zip(d1,d2,d3,f2,d5,d4,f1):
-		for item in zip(d1, d2, d3, d5, d4):
+		for item in zip(d1,d2,d3,d6,d4,d7,d5):
 			ws.append(item)
-
 	ws.auto_filter.ref = ws.dimensions
 	wb.save(filetarget)
 
-filechoice = dirscan()
-time1 = time.time()
-busts, end = setup(filechoice)
-query1, list1, total = reqParse(filechoice)
-asycry = Pool()
-list2= asycry.map(reqProc, query1)
-#print(list2)
-list2 = list(list2)
-query2 = reqParseS(query1)
-list3 = asycry.map(reqProc, query2)
-list3 = list(list3)
-time1 = time.time() - time1
-list4, list5, didchk, time2 = reqProcB(busts)
-dictmerge(list1, list2, list3, list4, list5, didchk)
-time2 = round(int(time2))			#This is a joke. This value is too short, so it ends up not even mattering, unless really, REALLY large numbers. Which is basically not happening.
-time1 = round(time1)
-time2 = time2 + time1
-print('Finished in', time2)
+#Script start!															Yes, I know the comments look awful. I also know there'sno reason to have all these comments. I got bored, okay? OKAY?!?!?! And don't get me started on the variable names. This whole thing is a bodge.
+filechoice = dirscan()													#Initial directory Check
+time1 = time.time()														#Duration timer. Will be removed for compiled version.
+busts, end = setup(filechoice)											#Setting up the extra bits.
+query1, list1, total = reqParse(filechoice)								#Requests Parsing. i.e. prepping for requests to use, as well as anything that happens to need a loop equal to the number of things in the list.
+asycry = Pool()															#Multithreading.
+#progbar()																#6th attempt at this. This will work. It has to. IT JUST *#$%ING HAS TO. IT'S NOT EVEN CONNECTED TO ANYTHING REAL. PLEASE JUST F*#$!NG WORK. AHHHHHHHHHHHHHHH......
+list2= asycry.map(reqProc, query1)										#Multithreading process here. I know it doesn't use process. or pool. it uses threads.... Maybe?
+list2 = list(list2)														#Resorting into list.
+query2 = reqParseS(query1)												#Appending the requests list. I'm lazy, so I'm just going to reuse the prior requests function.
+list3 = asycry.map(reqProc, query2)										#See above.
+list3 = list(list3)														#See three lines above.
+time1 = time.time() - time1												#Time break. User input delay will not be counted. Also, only reason why I'm doing this is to benchmark against my bash script.
+conv1, list4, didchk, time2 = reqProcB(busts)							#Busts check. It's all about dem tiddies, innit. *sigh.*
+time3 = time.time()														#Retriggering time check
+list5, list6, list7 = convProc(list2, list3, conv1)						#Conversion and calculation.
+dictmerge(list1, list2, list3, list4, list5, list6, list7, didchk)		#This is used to merge it all together. The lists hold these values: 1. Name, 2. Total., 3.Pure, 4. BustSize, 5.Purity%, 6. Impure count, 7.Alphanumeric translation.
+time3 = time.time() - time3												#End of timecheck. Script is basically over.
+time2 = round(int(time2))												#This is a joke. This float is too short, so it ends up not even mattering, unless really, REALLY large numbers. Which is basically not happening.
+time1 = round(time1)													#Time crunching.
+time3 = round(time3)													#Read above. Side note, I wonder how much larger I've made the script size because of all the tabs....
+timetotal = time2 + time1 + time3										#Final calculation
+sg.popup('Done! Now go check your results!')							#NO comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
+print('Finished in', timetotal)											#Felt cute. Might remove later. *cries in cringe*
