@@ -1,11 +1,11 @@
 # Project-OHDEAR
 A script for compiling the latest information in explicit designs on Danbooru.
 
-OHDEAR, or as my friend suggested, but I like to rename as O.H.D.E.A.R, stands for Opensource Heuristic for the Determination of Explicit Artwork Ratios, is a Python script that is a complete rewrite of my original project written in Bash, for use in more OS'es. 
+OHDEAR, or as my friend suggested, but renamed as O.H.D.E.A.R, stands for Opensource Heuristic for the Determination of Explicit Artwork Ratios, is a Python script that is a complete rewrite of my original project written in Bash, for use in more OS'es. 
 
 Start Guide: All you need is four things. The first three are given, but the fourth is a folder called 'results'. After that, if you're git-cloning this, just chmod +x the MainGUI and let it run with ./MainGUI.
 
-For Linux users, there is a compiled version for you. You till need the options.json, but you can supply your own URLs and results folder. For Windows users... WSL?
+For Linux users, there is a compiled version for you. You still need the options.json, but you can supply your own URLs and results folder. For Windows users... WSL?
 
 Each file to source from should just contain the variable, I.E. the thing that changes, so the name of the character(s) you want to return. If it includes an identifier tag, for example in cases where character names can be used across multiple series, and they have a "\_(Series)" tag on the end, if it is a new file it has not seen before, it will prompt you to add one if required in-script, so no need to touch any of the files yourself.
 
