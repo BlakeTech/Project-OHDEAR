@@ -9,6 +9,7 @@
 
 #Defining all the libraries required.
 from multiprocessing.dummy import Pool						#Parallel processing, using threads instead. Makes sense for this since task is IO bound? Needs rework if progbar is to be used. Managers or sommat.
+import platform									#OS check. Not used yet.
 import json									#Parsing the options menu.
 import requests									#Web requests.
 import time									#Time(r). Not necessary at all. Just for benchmarking.
@@ -20,6 +21,7 @@ import PySimpleGUI as sg							#Nonstandard Library. Tkinter augment.
 
 #Defining all the variables.
 url = 'https://danbooru.donmai.us/counts/posts.json?tags='
+danend = 'https://danbooru.donmai.us/related_tag?search[category]=4&limit=500&search[query]='
 bustsurl = 'https://paizukan.com/html/'
 secend = '+rating:s'								#Pun. Second Ending.
 
@@ -28,6 +30,21 @@ sg.theme('Purple')
 
 #DEFining all the functions. Eh? Eh?
 #... I'll show myself out.
+def endfind ():
+	endtagstat = sg.popup_yes_no('Do you have a list of the names of characters? If no, we can get that for you. But it will require manual filtering.')
+	if endtagstat == 'Yes':							#Check endtag status, if we have it or not.
+		sg.popup('Okay. Moving on to series check.')
+	else:									#If no, we grab it but the data's messy. IT's also currently not cleaned up.
+		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.')
+		endsaven = endtagstat
+		endtagstat = danend + endtagstat
+		endtagstat = requests.get(endtagstat)
+		endtagstat = endtagstat.text
+		endsave = open(endsaven, 'w')
+		endsave.write(endtagstat)
+		sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.')
+		exit()
+
 def dirscan ():									#Directory Scan. Used to allow user to locate the file to scrape.
 	layout = [[sg.Text('Which list would you like to scour?')],
 		[sg.InputText(), sg.FileBrowse(file_types=(''), initial_folder='./url')],	#file_types here uses '' because I don't want to deal with cutting the file extention off, and the "All types", is really more of a ".", i.e. all files with an extention. Also, because I hate adding the extentions. F/Bite me. Note: Dev has been notified. Will be patched in next update, apparently. Woot!
@@ -54,7 +71,8 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 def setup (filechoice):								#Setup. Might not show up for the end user, depends if the file to scrape is on file.
 	with open('Options.json') as f:
 		data=json.load(f)
-		filtchk=filechoice.split('/')[-1]
+		filtchk=filechoice.split('/')[-1]				#Shit. Just realised this is os-specific. Though....
+		filtchk=filechoice.split('\\')[-1]				#That should fix the above. Assuming the escape escapes properly.
 		busts, end = "", ""
 		if filtchk in data["busts"]:
 			busts = data["busts"][filtchk]
@@ -148,7 +166,7 @@ def reqProcB(tag):								#Requests Busts tag.
 							t1 = i.replace(check2, '').replace('"','')
 							bust.append(t1)
 				time2 = time.time() - time2
-	                except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Any others, then something's changed on their end.
+			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Any others, then something's changed on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err)
 				did = '0'
 				time = '0'
@@ -217,7 +235,8 @@ def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval): 				#List Merge. Probably coul
 
 def main():
 	#Script start!								Yes, I know the comments look awful. I also know there's no reason to have all these comments. I got bored, okay? OKAY?!?!?!
-	filechoice = dirscan()							#Initial directory Check
+	endfind()								#Checks if the series is on record.
+	filechoice = dirscan()							#Series Selector.
 	time1 = time.time()							#Duration timer. Might be removed for compiled version.
 	busts, end = setup(filechoice)						#Setting up the extra bits.
 	query1, list1, total = reqParse(filechoice)				#Requests Parsing. i.e. prepping for requests to use, as well as anything that happens to need a loop equal to the number of things in the list. Asycry = Asyncronous requests (crying)
@@ -246,9 +265,10 @@ if __name__ == "__main__":
     main()									#I caved. Setting up Main. Probably for the best.
 
 
-#Todo: 
+#Todo:
 #Progbar - Requires below.
 #Manager Multiprocessing. - Not started.
-#Autogen search strings based on series. - Got the endlink. Requires filtering, but no filter can do so due to the nature of danbooru's tagging system. So, possible solution, use it as a way to allow users to manually filter it.
+#Autogen search strings based on series. - Got the endlink. Requires filtering, but no filter can do so due to the nature of danbooru's tagging system. So, possible solution, use it as a way to allow users to manually filter it. -DONE
 #Json-ify settings, to allow for cheating in end-tagging on specifics. I.e. some series may have characters that do require the ending tag, others don't. The jsonification allows it to take the namelist, and standardize it. Possibly by writing the tags directly, to prevent having to go through that allocation over and over. Can be done now, but is undecided. PLus, the time it takes is so short anyways.
-
+#OS-dependent differences - Mainly just deals with moving between directories. / vs \ on Linux vs Windows directory pathing.
+#Virtual environment - Easier to just set up env with all external libs prepackaged.
