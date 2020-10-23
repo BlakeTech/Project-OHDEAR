@@ -8,7 +8,7 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
-from multiprocessing.dummy import Pool						#Parallel processing, using threads instead. Makes sense for this since task is IO bound? Needs rework if progbar is to be used. Managers or sommat.
+from multiprocessing import Pool, Value						#Parallel processing. AsyncIO is massively slower in testing. And returns garage data. For now, using this.
 import platform									#OS check. Not used yet.
 import json									#Parsing the options menu.
 import requests									#Web requests.
@@ -55,7 +55,7 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 	loop = 0
 	while conf == 0:
 		if not values[0] and not event in (None, 'Cancel'):
-			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Don't remember why it must die.
+			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely. 
 			exit()
 		elif event in (None, 'Cancel'):
 			sg.popup('User closed script. :(')
@@ -72,7 +72,7 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 	with open('Options.json') as f:
 		data=json.load(f)
 		filtchk=filechoice.split('/')[-1]				#Shit. Just realised this is os-specific. Though....
-		filtchk=filechoice.split('\\')[-1]				#That should fix the above. Assuming the escape escapes properly.
+#		filtchk=filechoice.split('\\')[-1]				#That should fix the above. Assuming the escape escapes properly.
 		busts, end = "", ""
 		if filtchk in data["busts"]:
 			busts = data["busts"][filtchk]
@@ -104,7 +104,7 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 			del window
 		return busts, end
 
-def reqParse (filechoice): 							#Requests url setup here. As well as anything else that happens to need cycles matching number of items in list.
+def reqParse (filechoice,end): 							#Requests url setup here. As well as anything else that happens to need cycles matching number of items in list.
 	with open(filechoice) as r:
 		query = []
 		names = []
@@ -124,18 +124,34 @@ def reqParseS (infodmp):							#Appending "s" tag.
 		query.append(link)
 	return query
 
-def reqProc (toget):								 #Requests urls and processes it. Asyncronous Multiprocessing. The bodged way. Don't need BeautifulSoup when you can just request for the json, much less crap to sift out.
+def reqProc (toget):								#Requests urls and processes it. Asyncronous Multiprocessing. The bodged way. Don't need BeautifulSoup when you can just request for the json, much less crap to sift out.
 	response = requests.get(toget)
 	response = response.text
 	response = response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', '')
 	return response
 
-#def progBar ():
-#	while not progstat = progtotal:
-#If you're reading this, it's too late. I'm done. I can't take it anymore.
-#Coincidentally, "If you're reading this, it's too late" is actually a pretty decent book. I suggest reading this.
-#And a note to future me. READ A F#*$!NG TUTORIAL ON HOW TO PROGRAM (IN PYTHON), YOU TWIT.
-#...Thank you all for coming to my talk. Have a wonderful rest of your day/evening/other temporal state. If you somehow reached here before reading the execution phase... Hi! and sorry about the future ramble. Or is it the past?
+def progbar (total, querylist):
+	count = 0
+	result = []
+	layout = [[sg.Text('Getting the latest info for you...')],
+		[sg.ProgressBar(total, orientation='h', size=(20, 20), key='progbar')],
+		[sg.Cancel()]]
+	window = sg.Window('Processing...', layout)
+	asycry = Pool()
+	for i in asycry.imap(reqProc, querylist):
+		event, values = window.read(timeout=0)
+		if event == 'Cancel' or event == sg.WIN_CLOSED:
+			break
+		count += 1
+		window['progbar'].update_bar(count)
+		result.append(i)
+	window.close()
+	counter = 0
+	asycry.close()								#Best practices to avoid memory leaks, or sommat.
+	asycry.join()
+	return result
+
+#It took 7 different attempts. It's finally working! ^
 
 def reqProcB(tag):								#Requests Busts tag.
 	if not tag == '':
@@ -155,7 +171,6 @@ def reqProcB(tag):								#Requests Busts tag.
 				response = requests.get(toget)
 				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
 				response = response.text
-				time2 = time.time()
 				for line in response.splitlines():
 					chunk = line.split(' ')
 					for i in chunk:
@@ -165,25 +180,21 @@ def reqProcB(tag):								#Requests Busts tag.
 						elif check2 in i:
 							t1 = i.replace(check2, '').replace('"','')
 							bust.append(t1)
-				time2 = time.time() - time2
 			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Any others, then something's changed on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err)
 				did = '0'
-				time = '0'
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.')
 			bust = []
 			cup = []
 			did = '0'
-			time2 = '0'
 		window.close()
 		del window
 	else:
 		bust = []
 		cup = []
 		did = '0'
-		time2 = '0'
-	return bust, cup, did, time2
+	return bust, cup, did
 
 def convProc(v1, v2, v3):							#Convertion Process, for dictionary translation.
 	purity = []
@@ -209,7 +220,7 @@ def convProc(v1, v2, v3):							#Convertion Process, for dictionary translation.
 			print('Warning. One (or more) of your links are invalid. Check result for any results with a purity of 0.')
 	return purity, nsfw, convresult
 
-def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval): 				#List Merge. Probably could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
+def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Probably could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
 	filetarget = filechoice.replace('url', 'results') + '.xlsx'
 	h1 = ['Character Name']							#...There has to be a better way than this.
 	h2 = ['Total']
@@ -234,41 +245,34 @@ def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval): 				#List Merge. Probably coul
 	wb.save(filetarget)
 
 def main():
-	#Script start!								Yes, I know the comments look awful. I also know there's no reason to have all these comments. I got bored, okay? OKAY?!?!?!
-	endfind()								#Checks if the series is on record.
-	filechoice = dirscan()							#Series Selector.
-	time1 = time.time()							#Duration timer. Might be removed for compiled version.
-	busts, end = setup(filechoice)						#Setting up the extra bits.
-	query1, list1, total = reqParse(filechoice)				#Requests Parsing. i.e. prepping for requests to use, as well as anything that happens to need a loop equal to the number of things in the list. Asycry = Asyncronous requests (crying)
-	asycry = Pool()								#Multithreading.
-	#progbar()								#6th attempt at this. This will work. It has to. IT JUST *#$%ING HAS TO. IT'S NOT EVEN CONNECTED TO ANYTHING REAL. PLEASE JUST F*#$!NG WORK. AHHHHHHHHHHHHHHH......
-	list2= asycry.map(reqProc, query1)					#Multithreaded processing here. I know it doesn't use process, or pool, it uses threads.... Maybe?
-	list2 = list(list2)							#Re-sorting into list.
-	query2 = reqParseS(query1)						#Appending the requests list. I'm lazy, so I'm just going to reuse the prior requests function.
-	list3 = asycry.map(reqProc, query2)					#See above.
-	list3 = list(list3)							#See three lines above.
-	time1 = time.time() - time1						#Time break. User input delay will not be counted. Also, only reason why I'm doing this is to benchmark against my bash script.
-	conv1, list4, didchk, time2 = reqProcB(busts)				#Busts check. It's all about dem tiddies, innit. *sigh.*
-	time3 = time.time()							#Retriggering time check
-	list5, list6, list7 = convProc(list2, list3, conv1)			#Conversion and calculation.
-	dictmerge(list1, list2, list3, list4, list5, list6, list7, didchk)	#This is used to merge it all together. The lists hold these values: 1. Name, 2. Total., 3.Pure, 4. BustSize, 5.Purity%, 6. Impure count, 7.Alphanumeric translation.
-	time3 = time.time() - time3						#End of timecheck. Script is basically over.
-	time2 = round(int(time2))						#This is a joke. This float is too short, so it ends up not even mattering, unless really, REALLY large numbers. Which is basically not happening.
-	time1 = round(time1)							#Time crunching.
-	time3 = round(time3)							#Read above. Side note, I wonder how much larger I've made the script size because of all the tabs....
-	timetotal = time2 + time1 + time3					#Final calculation.
-	sg.popup('Done! Now go check your results!')				#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
-	print('Finished in', timetotal,'.')					#Felt cute. Might remove later. *cries in cringe*
-	print('Dansource:', time1,'Tiddies:', time2, 'Combine:', time3)
+	#Script start!									Yes, I know the comments look awful. I also know there's no reason to have all these comments. I got bored, okay? OKAY?!?!?!
+	endfind()									#Checks if the series is on record.
+	filechoice = dirscan()								#Series Selector.
+	time1 = time.time()								#Duration timer. Might be removed for compiled version.
+	busts, end = setup(filechoice)							#Setting up the extra bits.
+	query1, list1, total = reqParse(filechoice,end)					#Requests Parsing. i.e. prepping for requests to use, as well as anything that happens to need a loop equal to the number of things in the list. Asycry = Asyncronous requests (crying)
+	list2 = progbar(total, query1)							#7th time's the charm. Or something.
+	list2 = list(list2)								#Re-sorting into list.
+	query2 = reqParseS(query1)							#Appending the requests list. I'm lazy, so I'm just going to reuse the prior requests function.
+	list3 = progbar(total, query2)							#Taking over by combining the map with the bar.
+	list3 = list(list3)								#See five lines above.
+	time1 = time.time() - time1							#Time break. User input delay will not be counted. Also, only reason why I'm doing this is to benchmark against my bash script.
+	conv1, list4, didchk = reqProcB(busts)						#Busts check. It's all about dem tiddies, innit. *sigh.*
+	time2 = time.time()								#Retriggering time check
+	list5, list6, list7 = convProc(list2, list3, conv1)				#Conversion and calculation.
+	dictmerge(list1, list2, list3, list4, list5, list6, list7, didchk,filechoice)	#This is used to merge it all together. The lists hold these values: 1. Name, 2. Total., 3.Pure, 4. BustSize, 5.Purity%, 6. Impure count, 7.Alphanumeric translation.
+	time2 = time.time() - time2							#End of timecheck. Script is basically over.
+	time1 = round(time1)								#Time crunching.
+	time2 = round(time2)								#Read above. Side note, I wonder how much larger I've made the script size because of all the tabs....
+	timetotal = time1 + time2							#Final calculation.
+	sg.popup('Done! Now go check your results!')					#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
+	print('Finished in', timetotal,'.')						#Felt cute. Might remove later. *cries in cringe*
 
 if __name__ == "__main__":
-    main()									#I caved. Setting up Main. Probably for the best.
-
+    main()										#I caved. Setting up Main. Probably for the best.
+											#Spontaneous failures. Main messed stuff up.
 
 #Todo:
-#Progbar - Requires below.
-#Manager Multiprocessing. - Not started.
-#Autogen search strings based on series. - Got the endlink. Requires filtering, but no filter can do so due to the nature of danbooru's tagging system. So, possible solution, use it as a way to allow users to manually filter it. -DONE
 #Json-ify settings, to allow for cheating in end-tagging on specifics. I.e. some series may have characters that do require the ending tag, others don't. The jsonification allows it to take the namelist, and standardize it. Possibly by writing the tags directly, to prevent having to go through that allocation over and over. Can be done now, but is undecided. PLus, the time it takes is so short anyways.
 #OS-dependent differences - Mainly just deals with moving between directories. / vs \ on Linux vs Windows directory pathing.
 #Virtual environment - Easier to just set up env with all external libs prepackaged.
