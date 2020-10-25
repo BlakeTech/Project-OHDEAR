@@ -8,11 +8,11 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
+import re
 from multiprocessing import Pool, Value						#Parallel processing. AsyncIO is massively slower in testing. And returns garbage data. For now, using this.
 import json									#Parsing the options menu.
 import requests									#Web requests.
 import time									#Time(r). Not necessary at all. Just for benchmarking.
-import string									#Predefined list of characters. Used for alphanumeric translation. Also, just looks cleaner.
 import tkinter									#Basic (RE:Ugly) GUI maker.
 import PySimpleGUI as sg							#Nonstandard Library. Tkinter augment.
 import pandas as pd								#Nonstandard Library. Excel Processor.
@@ -30,24 +30,26 @@ def endfind ():
 		sg.popup('Okay. Moving on to series check.')
 	else:									#If no, we grab it but the data's messy. IT's also currently not cleaned up.
 		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.')
-		endsaven = endtagstat
-		endtagstat = danend + endtagstat
-		endtagstat = requests.get(endtagstat)
-		endtagstat = endtagstat.text
-		endsave = open(endsaven, 'w')
-		endsave.write(endtagstat)
-		sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.')
-		exit()
+		if endtagstat == None or endtagstat:
+			exit()
+		else:
+			endsaven = endtagstat
+			endtagstat = danend + endtagstat
+			endtagstat = requests.get(endtagstat)
+			endtagstat = endtagstat.text
+			endsave = open(endsaven, 'w')
+			endsave.write(endtagstat)
+			sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.')
+			exit()
 
 def dirscan ():									#Directory Scan. Used to allow user to locate the file to scrape.
 	layout = [[sg.Text('Which list would you like to scour?')],
-		[sg.InputText(), sg.FileBrowse(file_types=(''), initial_folder='./url')],	#file_types here uses '' because I don't want to deal with cutting the file extention off, and the "All types", is really more of a ".", i.e. all files with an extention. Also, because I hate adding the extentions. F/Bite me. Note: Dev has been notified. Will be patched in next update, apparently. Woot!
+		[sg.InputText(), sg.FileBrowse(file_types=(''), initial_folder='./url')],
 		[sg.Button('Confirm'), sg.Button('Cancel')]]
 	window = sg.Window('O.H.D.A.M.N.', layout)
 	event, values = window.read()
-	conf = 0
-	loop = 0
-	while conf == 0:
+	conf = False
+	while not conf:
 		if not values[0] and not event in (None, 'Cancel'):
 			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely. 
 			exit()
@@ -57,7 +59,7 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 		elif event == 'Confirm':
 			sg.popup('Confirmed!')
 			filechosen = values[0]
-			conf = 1
+			conf = True
 	window.close()
 	del window
 	return filechosen
@@ -87,13 +89,13 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 			if event in (None,'Nope!'):
 				sg.popup('Understood!')
 				data["ignored"][str(filtchk)] = None
-				with open('Options.json', 'w') as g:
+				with open('Options.json') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
 				end = ""
 			elif event == 'Add this!':
 				sg.popup('Added to the settings!')
 				data["end"][str(filtchk)] = values[0]
-				with open('Options.json', 'w') as g:
+				with open('Options.json') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
 				end = data["end"][filtchk]
 			window.close()
@@ -102,17 +104,15 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 
 def reqParse (filechoice,end): 							#Requests url setup here. As well as anything else that happens to need cycles matching number of items in list.
 	url = 'https://danbooru.donmai.us/counts/posts.json?tags='
-	with open(filechoice) as r:
+	with open(filechoice, 'r') as r:
 		query = []
 		names = []
-		count = int()
 		for line in r:
 			line = line.rstrip("\n")
 			link = url + line + end
 			query.append(link)
 			names.append(line)
-		count = len(query)
-	return query, names, count
+	return query, names
 
 def reqParseS (infodmp):							#Appending "s" tag.
 	secend = '+rating:s'
@@ -125,14 +125,14 @@ def reqParseS (infodmp):							#Appending "s" tag.
 def reqProc (toget):								#Requests urls and processes it. Asyncronous Multiprocessing. The bodged way. Don't need BeautifulSoup when you can just request for the json, much less crap to sift out.
 	response = requests.get(toget)
 	response = response.text
-	response = response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', '')
+	response = int(response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', ''))
 	return response
 
-def progbar (total, querylist):
+def progbar (querylist):
 	count = 0
 	result = []
 	layout = [[sg.Text('Getting the latest info for you...')],
-		[sg.ProgressBar(total, orientation='h', size=(20, 20), key='progbar')],
+		[sg.ProgressBar(len(querylist), orientation='h', size=(20, 20), key='progbar')],
 		[sg.Cancel()]]
 	window = sg.Window('Processing...', layout)
 	asycry = Pool()
@@ -157,67 +157,51 @@ def reqProcB(tag):								#Requests Busts tag.
 				  [sg.Button('Hell Yes!'), sg.Button('Nah...')]]
 		window = sg.Window('O.H.D.A.M.N.', layout)
 		event, garbval = window.read()
+		bust = []	#Alphabet
+		cup = []	#Raw number
+		did = '0'
 		if event in ('Hell Yes!'):
 			sg.popup('Please use this responsibly, as to not DOS attack the server!')
 			bustsurl = 'https://paizukan.com/html/'
 			toget = bustsurl + tag
-			bust = []
-			cup = []
-			did = '1'
-			check1 = 'data-bust="'
-			check2 = 'data-cup="'
+			check = []
+			check1 = 'data-bust="'					#rating, numerically
 			try:
 				response = requests.get(toget)
 				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
+				did = '1'
 				response = response.text
-				for line in response.splitlines():
-					chunk = line.split(' ')
-					for i in chunk:
-						if check1 in i:
-							t1 = i.replace(check1, '').replace('"','')
-							cup.append(t1)
-						elif check2 in i:
-							t1 = i.replace(check2, '').replace('"','')
-							bust.append(t1)
-			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Any others, then something's changed on their end.
+				for line in response.splitlines():		#checking each line. I refuse to use beautifulsoup.
+					if check1 in line:
+						check.append(line)
+				for i in range(len(check)):			#check now contains all the goodies, but has trash.
+					hold = check[i].split(" d")		#splits them into three.
+					cuptemp = re.sub("[^0-9]", "", hold[1]) #getting the raw number.
+					cup.append(cuptemp)
+					bustemp = hold[0].split(" ")[-1][:-1]	#getting the alphabetical designation.
+					bust.append(bustemp)
+			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err)
-				did = '0'
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.')
-			bust = []
-			cup = []
-			did = '0'
 		window.close()
 		del window
 	else:
-		bust = []
-		cup = []
-		did = '0'
+		sg.popup('Skipping bustcheck as is unsupported.')
 	return bust, cup, did
 
-def convProc(v1, v2, v3):							#Convertion Process, for dictionary translation.
+def pureCalc(v1, v2):							#Convertion Process, for dictionary translation.
 	purity = []
 	nsfw = []
-	convresult = []
-	convdict = {}
-	tempnum = 2
-	tempalph = string.ascii_uppercase
-	for i in tempalph:
-		convdict[str(tempnum)] = i
-		tempnum += 1
-	convdict['0'] = 'AAA'
-	convdict['1'] = 'AA'
-	for j in v3:
-		convresult.append(convdict.get(j , "The bust is over 9000! Invalid result!"))
 	for t, p in zip(v1, v2):
 		try:
-			purity.append(str(int(p)/int(t)*100))
-			nsfw.append(int(t)-int(p))
+			purity.append(str(p/t*100))
+			nsfw.append(t-p)
 		except ZeroDivisionError:					#Divide-By-Zero catch. Prevents script from breaking by just forcing a 0.
 			purity.append(int(0))
 			nsfw.append(int(0))
 			print('Warning. One (or more) of your links are invalid. Check result for any results with a purity of 0.')
-	return purity, nsfw, convresult
+	return purity, nsfw
 
 def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Probably could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
 	filetarget = filechoice.replace('url', 'results') + '.xlsx'
@@ -249,16 +233,16 @@ def main():
 	filechoice = dirscan()								#Series Selector.
 	time1 = time.time()								#Duration timer. Might be removed for compiled version.
 	busts, end = setup(filechoice)							#Setting up the extra bits.
-	query1, list1, total = reqParse(filechoice,end)					#Requests Parsing. i.e. prepping for requests to use, as well as anything that happens to need a loop equal to the number of things in the list. Asycry = Asyncronous requests (crying)
-	list2 = progbar(total, query1)							#7th time's the charm. Or something.
+	query1, list1 = reqParse(filechoice,end)					#Requests Parsing. i.e. prepping for requests to use, as well as anything that happens to need a loop equal to the number of things in the list. Asycry = Asyncronous requests (crying)
+	list2 = progbar(query1)							#7th time's the charm. Or something.
 	list2 = list(list2)								#Re-sorting into list.
 	query2 = reqParseS(query1)							#Appending the requests list. I'm lazy, so I'm just going to reuse the prior requests function.
-	list3 = progbar(total, query2)							#Taking over by combining the map with the bar.
+	list3 = progbar(query2)							#Taking over by combining the map with the bar.
 	list3 = list(list3)								#See three lines above.
 	time1 = time.time() - time1							#Time break. User input delay will not be counted. Also, only reason why I'm doing this is to benchmark against my bash script.
-	conv1, list4, didchk = reqProcB(busts)						#Busts check. It's all about dem tiddies, innit. *sigh.*
+	list7, list4, didchk = reqProcB(busts)						#Busts check. It's all about dem tiddies, innit. *sigh.*
 	time2 = time.time()								#Retriggering time check
-	list5, list6, list7 = convProc(list2, list3, conv1)				#Conversion and calculation.
+	list5, list6 = pureCalc(list2, list3)				#Conversion and calculation.
 	dictmerge(list1, list2, list3, list4, list5, list6, list7, didchk, filechoice)	#This is used to merge it all together. The lists hold these values: 1. Name, 2. Total., 3.Pure, 4. BustSize, 5.Purity%, 6. Impure count, 7.Alphanumeric translation.
 	time2 = time.time() - time2							#End of timecheck. Script is basically over.
 	time1 = round(time1)								#Time crunching.
