@@ -8,8 +8,8 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
-import re
-from multiprocessing import Pool, Value						#Parallel processing. AsyncIO is massively slower in testing. And returns garbage data. For now, using this.
+import re									#Regex.
+from multiprocessing import Pool, Value						#Multi-processing via multiple cores.
 import json									#Parsing the options menu.
 import requests									#Web requests.
 import time									#Time(r). Not necessary at all. Just for benchmarking.
@@ -51,7 +51,7 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 	conf = False
 	while not conf:
 		if not values[0] and not event in (None, 'Cancel'):
-			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely. 
+			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely.
 			exit()
 		elif event in (None, 'Cancel'):
 			sg.popup('User closed script. :(')
@@ -161,7 +161,7 @@ def reqProcB(tag):								#Requests Busts tag.
 		cup = []	#Raw number
 		did = '0'
 		if event in ('Hell Yes!'):
-			sg.popup('Please use this responsibly, as to not DOS attack the server!')
+			sg.popup_no_wait('Please use this responsibly, as to not DOS attack the server!')
 			bustsurl = 'https://paizukan.com/html/'
 			toget = bustsurl + tag
 			check = []
@@ -181,9 +181,9 @@ def reqProcB(tag):								#Requests Busts tag.
 					bustemp = hold[0].split(" ")[-1][:-1]	#getting the alphabetical designation.
 					bust.append(bustemp)
 			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
-				sg.popup('Paizukan has returned an error. Skipped. Error code ',err)
+				sg.popup_no_wait('Paizukan has returned an error. Skipped. Error code ',err)
 		elif event in (None, 'Nah...'):
-			sg.popup('Alright then.')
+			sg.popup_no_wait('Alright then.')
 		window.close()
 		del window
 	else:
@@ -248,8 +248,8 @@ def main():
 	time1 = round(time1)								#Time crunching.
 	time2 = round(time2)								#Read above. Side note, I wonder how much larger I've made the script size because of all the tabs....
 	timetotal = time1 + time2							#Final calculation.
-	sg.popup('Done! Now go check your results!')					#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
-	print('Finished in', timetotal,'.')						#Felt cute. Might remove later. *cries in cringe*
+	sg.popup_no_wait('Done! Now go check your results!')					#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
+	print('Finished in', timetotal,'seconds.')					#Felt cute. Might remove later. *cries in cringe*
 
 if __name__ == "__main__":
     main()										#I caved. Setting up Main. Probably for the best.

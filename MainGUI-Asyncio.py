@@ -8,16 +8,16 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
-import re				#Regex.
-import threading			#Multithreading. Each request comes with it's own thread, with a shared session.
-from queue import Queue			#Queue system.
-import json				#Parsing the options menu.
-import requests				#Web requests.
-import time				#Time(r). Not necessary at all. Just for benchmarking.
-import tkinter				#Basic (RE:Ugly) GUI maker.
-import PySimpleGUI as sg		#Nonstandard Library. Tkinter augment.
-import pandas as pd			#Nonstandard Library. Excel Processor.
-from openpyxl import Workbook		#Nonstandard Library. Pandas Augment.
+import re			#Regex.
+import asyncio			#Multithreading.
+import aiohttp			#Multithreading, ASyncio Augment, Nonstandard Library.
+import json			#Parsing the options menu.
+import requests			#Web requests.
+import time			#Time(r). Not necessary at all. Just for benchmarking.
+import tkinter			#Basic (RE:Ugly) GUI maker.
+import PySimpleGUI as sg	#Nonstandard Library. Tkinter augment.
+import pandas as pd		#Nonstandard Library. Excel Processor.
+from openpyxl import Workbook	#Nonstandard Library. Pandas Augment.
 
 #PySimpleGUI Themes
 sg.theme('Purple')
@@ -123,40 +123,14 @@ def reqParseS (infodmp):							#Appending "s" tag.
 		query.append(link)
 	return query
 
-def reqProc (q, result):							#Requests urls and processes it.
-	while not q.empty():
-		work = q.get()
-		response = requests.get(work[1])
-		response = response.text
-		result[work[0]] = int(response.replace('{"counts": {"posts"', '').replace('}}', '').replace(':', ''))
-		q.task_done()
-	return True
-
-def threadquery (querylist, q, numthreads):						#Progress bar. Unfortunately, this version of the script is a touch too fast, so this is really just a notifier than a progress bar.
-	count = 0
-	layout = [[sg.Text('Getting the latest info for you...')],
-		[sg.ProgressBar(len(querylist), orientation='h', size=(20,20), key='progbar')],
-		[sg.Cancel()]]
-	window = sg.Window('Processing...', layout)
-	result = [{} for x in querylist]
-	threads = []
-	for i in range(len(querylist)):
-		q.put((i,querylist[i]))
-	for i in range(numthreads):
-		process = threading.Thread(target=reqProc, args=(q, result))
-		process.setDaemon(True)
-		process.start()
-		event, values = window.read(timeout=0)
-		if event == 'Cancel' or event == sg.WIN_CLOSED:
-			sg.popup('Aborting Script.')
-			exit()
-		count += 1
-		window['progbar'].update_bar(count)
-	q.join()
-	window.close()
-	return result
-
-#It took 7 different attempts. It's finally working! ^
+async def Asyncquery(querylist):						#No progress bar on this version, it runs too quick to need it.
+	results = []
+	async with aiohttp.ClientSession() as session:
+		responses = await asyncio.gather(*(session.get(url)for url in querylist))	#No idea if i can just break it down like below. Not entirely sure how this works.
+		for i in responses:
+			mdata = await i.text()
+			results.append(int(mdata.replace('{"counts": {"posts"','').replace('}}','').replace(':','')))
+		return results
 
 def reqProcB(tag):								#Requests Busts tag.
 	if not tag == '':
@@ -235,17 +209,15 @@ def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Pro
 	wb.save(filetarget)
 
 def main():
-	#Script start!									Yes, I know the comments look awful. I also know there's no reason to have all these comments. I got bored, okay? OKAY?!?!?!
+#	Script start!									Yes, I know the comments look awful. I also know there's no reason to have all these comments. I got bored, okay? OKAY?!?!?!
 	endfind()									#Checks if the series is on record.
 	filechoice = dirscan()								#Series Selector.
 	time1 = time.time()								#Duration timer. Might be removed for compiled version.
 	busts, end = setup(filechoice)							#Setting up the extra bits.
 	query1, list1 = reqParse(filechoice,end)					#Requests Parsing. i.e. prepping for requests to use.
-	q = Queue(maxsize=0)								#Queue system, to prevent too many requests from breaking script.
-	numthreads = min(50, len(query1))						#Number of threads allowed to use at any time, otherwise may overwhelm. Does introduce a slight speed bump for larger sets than 100.
-	list2 = threadquery(query1, q, numthreads)					#Progress bar + Query
+	list2 = asyncio.run(Asyncquery(query1))						#Progress bar not needed, moves far to quick for it.
 	query2 = reqParseS(query1)							#Appending the requests list. I'm lazy, so I'm just going to reuse the prior requests function.
-	list3 = threadquery(query2, q, numthreads)					#Progress Bar + Query
+	list3 = asyncio.run(Asyncquery(query2))						#Progress bar not needed, moves far too quick for it.
 	time1 = time.time() - time1							#Time break. User input delay will not be counted. Also, only reason why I'm doing this is to benchmark against my bash script.
 	list7, list4, didchk = reqProcB(busts)						#Busts check. It's all about dem tiddies, innit. *sigh.*
 	time2 = time.time()								#Retriggering time check
