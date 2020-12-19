@@ -26,14 +26,14 @@ sg.theme('Purple')
 #... I'll show myself out.
 def endfind ():
 	danend = 'https://danbooru.donmai.us/related_tag?search[category]=4&limit=500&search[query]='
-	endtagstat = sg.popup_yes_no('Do you have a list of the names of characters? If no, we can get that for you. But it will require manual filtering.', title="O.H.D.E.A.R")
+	endtagstat = sg.popup_yes_no('Do you have a list of the names of characters? If no, we can get that for you. But it will require manual filtering.')
 	if endtagstat == 'Yes':							#Check endtag status, if we have it or not.
 		sg.popup('Okay. Moving on to series check.', title='O.H.D.E.A.R.')
 	elif endtagstat == None:
 		sg.popup("User closed script. :(")
 		sys.exit()
 	else:									#If no, we grab it but the data's messy. IT's also currently not cleaned up.
-		endtagstat = sg.popup_get_text('O.H.D.E.A.R.','Okay, type in the series name. Put an underscore, _, in place of spaces.')
+		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.', title='O.H.D.E.A.R.')
 		if endtagstat == None or endtagstat:
 			sys.exit()
 		else:
@@ -43,7 +43,7 @@ def endfind ():
 			endtagstat = endtagstat.text
 			endsave = open(endsaven, 'w')
 			endsave.write(endtagstat)
-			sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.')
+			sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.', title='O.H.D.E.A.R.')
 			sys.exit()
 
 def dirscan ():									#Directory Scan. Used to allow user to locate the file to scrape.
@@ -55,13 +55,13 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 	conf = False
 	while not conf:
 		if not values[0] and not event in (None, 'Cancel'):
-			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely.
+			sg.popup('No file selected. Due to limitations of GUI, script must die.', title='O.H.D.E.A.R.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely.
 			sys.exit()
 		elif event in (None, 'Cancel'):
-			sg.popup('User closed script. :(')
+			sg.popup('User closed script. :(', title='O.H.D.E.A.R.')
 			sys.exit()
 		elif event == 'Confirm':
-			sg.popup('Confirmed!')
+			sg.popup('Confirmed!', title='O.H.D.E.A.R.')
 			filechosen = values[0]
 			conf = True
 	window.close()
@@ -89,13 +89,13 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 			window = sg.Window('O.H.D.A.M.N.', layout)
 			event, values = window.read()
 			if event in (None,'Nope!'):
-				sg.popup('Understood!')
+				sg.popup('Understood!', title='O.H.D.E.A.R.')
 				data["ignored"][str(filtchk)] = None
 				with open('Options.json', 'w') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
 				end = ""
 			elif event == 'Add this!':
-				sg.popup('Added to the settings!')
+				sg.popup('Added to the settings!', title='O.H.D.E.A.R.')
 				data["end"][str(filtchk)] = values[0]
 				with open('Options.json', 'w') as g:
 					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
@@ -164,13 +164,13 @@ def reqProcB(tag):								#Requests Busts tag.
 					bustemp = hold[0].split(" ")[-1][:-1]	#getting the alphabetical designation.
 					bust.append(bustemp)
 			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
-				sg.popup('Paizukan has returned an error. Skipped. Error code ',err)
+				sg.popup('Paizukan has returned an error. Skipped. Error code ',err, title='O.H.D.E.A.R.')
 		elif event in (None, 'Nah...'):
 			sg.popup_no_wait('Alright then.')
 		window.close()
 		del window
 	else:
-		sg.popup('Skipping bustcheck as is unsupported.')
+		sg.popup('Skipping bustcheck as is unsupported.', title='O.H.D.E.A.R.')
 	return bust, cup, did
 
 def pureCalc(v1, v2):								#Purity Calculation.
@@ -186,7 +186,7 @@ def pureCalc(v1, v2):								#Purity Calculation.
 			nsfw.append(int(0))
 			invalnk = True
 	if invalnk:
-		sg.popup('Warning. One (or more) of your links are invalid. Check result for any results with a purity of 0.')
+		sg.popup('Warning. One (or more) of your links are invalid. Check result for any results with a purity of 0.', title='O.H.D.E.A.R.')
 	return purity, nsfw
 
 def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Probably could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
