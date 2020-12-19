@@ -8,16 +8,16 @@
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
 #Defining all the libraries required.
+import sys			#Proper exiting.
 import re			#Regex.
+import requests			#Web requests.
 import asyncio			#Multithreading.
 import aiohttp			#Multithreading, ASyncio Augment, Nonstandard Library.
-import json			#Parsing the options menu.
-import requests			#Web requests.
-import time			#Time(r). Not necessary at all. Just for benchmarking.
-import tkinter			#Basic (RE:Ugly) GUI maker.
-import PySimpleGUI as sg	#Nonstandard Library. Tkinter augment.
-import pandas as pd		#Nonstandard Library. Excel Processor.
-from openpyxl import Workbook	#Nonstandard Library. Pandas Augment.
+import json			#Options parser.
+import time			#Timer. Just for benchmarking.
+import wx			#GUI design. Nonstandard Library.
+import PySimpleGUIWx as sg	#WX wrapper. Nonstandard Library.
+from openpyxl import Workbook	#Xlmx file creator/editor, might require Pandas. Nonstandard Library.
 
 #PySimpleGUI Themes
 sg.theme('Purple')
@@ -26,13 +26,16 @@ sg.theme('Purple')
 #... I'll show myself out.
 def endfind ():
 	danend = 'https://danbooru.donmai.us/related_tag?search[category]=4&limit=500&search[query]='
-	endtagstat = sg.popup_yes_no('Do you have a list of the names of characters? If no, we can get that for you. But it will require manual filtering.')
+	endtagstat = sg.popup_yes_no('Do you have a list of the names of characters? If no, we can get that for you. But it will require manual filtering.', title="O.H.D.E.A.R")
 	if endtagstat == 'Yes':							#Check endtag status, if we have it or not.
-		sg.popup('Okay. Moving on to series check.')
+		sg.popup('Okay. Moving on to series check.', title='O.H.D.E.A.R.')
+	elif endtagstat == None:
+		sg.popup("User closed script. :(")
+		sys.exit()
 	else:									#If no, we grab it but the data's messy. IT's also currently not cleaned up.
-		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.')
+		endtagstat = sg.popup_get_text('O.H.D.E.A.R.','Okay, type in the series name. Put an underscore, _, in place of spaces.')
 		if endtagstat == None or endtagstat:
-			exit()
+			sys.exit()
 		else:
 			endsaven = endtagstat
 			endtagstat = danend + endtagstat
@@ -41,7 +44,7 @@ def endfind ():
 			endsave = open(endsaven, 'w')
 			endsave.write(endtagstat)
 			sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.')
-			exit()
+			sys.exit()
 
 def dirscan ():									#Directory Scan. Used to allow user to locate the file to scrape.
 	layout = [[sg.Text('Which list would you like to scour?')],
@@ -53,10 +56,10 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 	while not conf:
 		if not values[0] and not event in (None, 'Cancel'):
 			sg.popup('No file selected. Due to limitations of GUI, script must die.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely.
-			exit()
+			sys.exit()
 		elif event in (None, 'Cancel'):
 			sg.popup('User closed script. :(')
-			exit()
+			sys.exit()
 		elif event == 'Confirm':
 			sg.popup('Confirmed!')
 			filechosen = values[0]
@@ -77,10 +80,8 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 			busts = data["busts"][filtchk]
 		if filtchk in data["ignored"]:
 			end = ""
-			progloop = 2
 		elif filtchk in data["end"]:
 			end = data["end"][filtchk]
-			progloop = 2
 		else:
 			layout = [[sg.Text('Would you like to add any end tags to your list?')],
 				[sg.InputText()],
@@ -129,18 +130,19 @@ async def Asyncquery(querylist):						#No progress bar on this version, it runs 
 		responses = await asyncio.gather(*(session.get(url)for url in querylist))	#No idea if i can just break it down like below. Not entirely sure how this works.
 		for i in responses:
 			mdata = await i.text()
-			results.append(int(mdata.replace('{"counts": {"posts"','').replace('}}','').replace(':','')))
+			mdata = int("".join(i for i in mdata if i.isdigit()))			#Instead of replacing all the words out, just keep the numbers. Might be less work.
+			results.append(mdata)
 		return results
 
 def reqProcB(tag):								#Requests Busts tag.
+	bust = []		#Alphabet
+	cup = []		#Raw Number
+	did = False
 	if not tag == '':
 		layout = [[sg.Text('Would you like to search for bust size too?')],
 				  [sg.Button('Hell Yes!'), sg.Button('Nah...')]]
 		window = sg.Window('O.H.D.A.M.N.', layout)
 		event, garbval = window.read()
-		bust = []	#Alphabet
-		cup = []	#Raw number
-		did = '0'
 		if event in ('Hell Yes!'):
 			sg.popup_no_wait('Please use this responsibly, as to not DOS attack the server!')
 			bustsurl = 'https://paizukan.com/html/'
@@ -150,7 +152,7 @@ def reqProcB(tag):								#Requests Busts tag.
 			try:
 				response = requests.get(toget)
 				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
-				did = '1'
+				did = True
 				response = response.text
 				for line in response.splitlines():		#checking each line. I refuse to use beautifulsoup.
 					if check1 in line:
@@ -162,7 +164,7 @@ def reqProcB(tag):								#Requests Busts tag.
 					bustemp = hold[0].split(" ")[-1][:-1]	#getting the alphabetical designation.
 					bust.append(bustemp)
 			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
-				sg.popup_no_wait('Paizukan has returned an error. Skipped. Error code ',err)
+				sg.popup('Paizukan has returned an error. Skipped. Error code ',err)
 		elif event in (None, 'Nah...'):
 			sg.popup_no_wait('Alright then.')
 		window.close()
@@ -174,6 +176,7 @@ def reqProcB(tag):								#Requests Busts tag.
 def pureCalc(v1, v2):								#Purity Calculation.
 	purity = []
 	nsfw = []
+	invalnk = False
 	for t, p in zip(v1, v2):
 		try:
 			purity.append(str(p/t*100))
@@ -181,21 +184,23 @@ def pureCalc(v1, v2):								#Purity Calculation.
 		except ZeroDivisionError:					#Divide-By-Zero catch. Prevents script from breaking by just forcing a 0.
 			purity.append(int(0))
 			nsfw.append(int(0))
-			print('Warning. One (or more) of your links are invalid. Check result for any results with a purity of 0.')
+			invalnk = True
+	if invalnk:
+		sg.popup('Warning. One (or more) of your links are invalid. Check result for any results with a purity of 0.')
 	return purity, nsfw
 
 def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Probably could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
 	filetarget = filechoice.replace('url', 'results') + '.xlsx'
 	h1 = ['Character Name']							#...There has to be a better way than this.
-	h2 = ['Total']
-	h3 = ['Pure']
+	h2 = ['Total']								#It's a list because for somereason, append only works with lists.
+	h3 = ['Pure']								#Also, it must be seperate cause otherwise it just appends it one by one downwards.
 	h4 = ['Bust Size']
 	h5 = ['Bust Rank']
 	h6 = ['Impure']
 	h7 = ['Purity Ratio']
 	wb=Workbook()
 	ws=wb.active
-	if ckval == '0':
+	if not ckval:
 		for item in zip(h1,h2,h3,h6,h7):
 			ws.append(item)
 		for item in zip(d1,d2,d3,d6,d5):
