@@ -12,3 +12,7 @@ Each file to source from should just contain the variable, I.E. the thing that c
 Special note for Kancolle and Azur Lane searchers: There is a special extra flag for you to also get the results from Paizukan, and return results of bust size of all your favourite ships. But due to the owner of said website being a bit paranoid, it is suggested that you only do this once every so often, in case they assume a (D)DOS. Basic mitigations are in place to only request the results when you choose to do so, and it's up to you to not be an arse and spam the server with requests by executing the script multiple times, and thus leading to the rest of us being unable to get the results.
 
 Original version: https://github.com/JasperTecHK/Danbooru-comparator-script
+
+Note: Asyncio is the only one going forward that will get updates, since it's the fastest.
+
+Required extra libraries: aiohttp, WxPython, PySimpleGUIWx, Pandas(Maybe?), openpyxl.
