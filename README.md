@@ -5,7 +5,8 @@ OHDEAR, or as my friend suggested, but renamed as O.H.D.E.A.R, stands for Openso
 
 Start Guide: All you need is four things. The first three are given, but the fourth is a folder called 'results'. After that, you may need to chmod +x the script.
 
-For Linux users, there is a compiled version for you. You still need the options.json, but you can supply your own URLs and results folder. For Windows users... WSL?
+~~For Linux users, there is a compiled version for you. You still need the options.json, but you can supply your own URLs and results folder. For Windows users... WSL?~~
+^Not up to date, have not bothered recompiling it.
 
 Each file to source from should just contain the variable, I.E. the thing that changes, so the name of the character(s) you want to return. If it includes an identifier tag, for example in cases where character names can be used across multiple series, and they have a "\_(Series)" tag on the end, if it is a new file it has not seen before, it will prompt you to add one if required in-script, so no need to touch any of the files yourself. -- Note, this is most likely going to be changed.
 
