@@ -89,17 +89,14 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 			window = sg.Window('O.H.D.A.M.N.', layout, finalize=True)
 			event, values = window.read()
 			if event in (None,'Nope!'):
-				sg.popup('Understood!', title='O.H.D.E.A.R.')
 				data["ignored"][str(filtchk)] = None
-				with open('Options.json', 'w') as g:
-					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
 				end = ""
 			elif event == 'Add this!':
-				sg.popup('Added to the settings!', title='O.H.D.E.A.R.')
 				data["end"][str(filtchk)] = values[0]
-				with open('Options.json', 'w') as g:
-					g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
 				end = data["end"][filtchk]
+			with open('Options.json', 'w') as g:
+				g.write(json.dumps(data, sort_keys=True, indent='\t', separators=(',', ': ')))
+				sg.popup('Settings saved!', title='O.H.D.E.A.R.')
 			window.close()
 			del window
 		return busts, end
@@ -117,28 +114,23 @@ def reqParse (filechoice, end): 						#Requests url setup here. As well as anyth
 	return query, names
 
 async def Asyncquery(querylist):						#No progress bar on this version, it runs too quick to need it.
-	srclist = querylist
+	srclist = querylist.copy()                                              #Making a copy just in case instead of referring back to it.
 	list2t = []
 	list3t = []
 	async with aiohttp.ClientSession() as session:
-		for i in range(2):
-			results = []
-			responses = await asyncio.gather(*(session.get(url)for url in srclist))	#No idea if i can just break it down like below. Not entirely sure how this works.
-			for i in responses:
-				mdata = await i.text()
-				mdata = int("".join(i for i in mdata if i.isdigit()))			#Instead of replacing all the words out, just keep the numbers. Might be less work.
-				results.append(mdata)
+		for i in range(2):                                              #So... to explain the clusterfuck below... I don't even know where to start. Just don't look at it directly in the eye.
+#1. Loops through and gets all the info into a list. 2. Requests the actual info instead of asyncio data and saves it to a list. 3. Cleans up the string and saves it into a list as a int. Stages are by each for loop.
+			results = [int(clnstr.split(":")[2].replace("}}","")) for clnstr in [await retxt.text() for retxt in await asyncio.gather(*(session.get(url)for url in srclist))]]      #Holy fuck this is the longest, ugliest list comprehension I have done. Really emphasizes the "comprehension" part of it.
 			if not list2t:
 				list2t = results.copy()
-				templst = [i + "+rating:s" for i in srclist]                            #Not sure if I can directly srclist = list comp here. Does list comp finish before passing, or does it pass while running?
-				srclist = templst
+				srclist = [i + "+rating:s" for i in srclist]
 			else:
 				list3t = results.copy()
 	return list2t, list3t
 
 def reqProcB(tag):								#Requests Busts tag.
-	bust = []		#Alphabet
-	cup = []		#Raw Number
+	bust = []		                                                #Alphabet
+	cup = []		                                                #Raw Number
 	did = False
 	if not tag == '':
 		layout = [[sg.Text('Would you like to search for bust size too?')],
@@ -156,15 +148,11 @@ def reqProcB(tag):								#Requests Busts tag.
 				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
 				did = True
 				response = response.text
-				for line in response.splitlines():		#checking each line. I refuse to use beautifulsoup.
-					if check1 in line:
-						check.append(line)
-				for i in range(len(check)):			#check now contains all the goodies, but has trash.
-					hold = check[i].split(" d")		#splits them into three.
-					cuptemp = re.sub("[^0-9]", "", hold[1]) #getting the raw number.
-					cup.append(cuptemp)
-					bustemp = hold[0].split(" ")[-1][:-1]	#getting the alphabetical designation.
-					bust.append(bustemp)
+				check = [line for line in response.splitlines() if check1 in line]		#checking each line. I refuse to use beautifulsoup.
+				for i in range(len(check)):			        #check now contains all the goodies, but has trash.
+					hold = check[i].split(" d")		        #splits them into three.
+					cup.append(re.sub("[^0-9]", "", hold[1]))       #getting the raw number.
+					bust.append(hold[0].split(" ")[-1][:-1])        #getting the alphabetical designation.
 			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err, title='O.H.D.E.A.R.')
 		elif event in (None, 'Nah...'):
