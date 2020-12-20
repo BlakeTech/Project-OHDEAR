@@ -3,7 +3,9 @@ A script for compiling the latest information in explicit designs on Danbooru.
 
 OHDEAR, or as my friend suggested, but renamed as O.H.D.E.A.R, stands for Opensource Heuristic for the Determination of Explicit Artwork Ratios, is a Python script that is a complete rewrite of my original project written in Bash, for use in more OS'es. 
 
-Start Guide: All you need is four things. The first three are given, but the fourth is a folder called 'results'. After that, you may need to chmod +x the script.
+Start Guide: All you need is four things. The first three are given, but the fourth is a folder called 'results'. After that, you may want to chmod +x the script.
+
+Folder structure: "results","url","Options.json","MainGUI-Asyncio.py".
 
 ~~For Linux users, there is a compiled version for you. You still need the options.json, but you can supply your own URLs and results folder. For Windows users... WSL?~~
 ^Not up to date, have not bothered recompiling it.
