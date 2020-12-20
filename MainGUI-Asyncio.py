@@ -32,7 +32,8 @@ def endfind ():
 	elif endtagstat == None:
 		sg.popup("User closed script. :(", title='O.H.D.E.A.R.')
 		sys.exit()
-	else:									#If no, we grab it but the data's messy, due to the nature of user-tagging. Best we can do, unless it's possible to source any potential sets/ series from fandom pages. Since this is not a guarantee, nor is there a definitive standard for those pages, this is the best I know)
+	else:
+#If no, we grab it but the data's messy, due to the nature of user-tagging. Best we can do, considering there is no definitive standard for fandom pages on characters, the closest thing to a central source.
 		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.')
 		if endtagstat == None or endtagstat == "":
 			sg.popup("User closed script. :(", title="O.H.D.E.A.R.")
@@ -141,18 +142,18 @@ def reqProcB(tag):								#Requests Busts tag.
 			bustsurl = 'https://paizukan.com/html/'
 			toget = bustsurl + tag
 			check = []
-			check1 = 'data-bust="'					#Rating, numerically
+			check1 = 'data-bust="'					#rating, numerically
 			try:
 				response = requests.get(toget)
-				response.raise_for_status()			#Untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
+				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
 				did = True
 				response = response.text
-				check = [line for line in response.splitlines() if check1 in line]		#Checking each line. I refuse to use beautifulsoup.
-				for i in range(len(check)):			        #Check now contains all the goodies, but has trash.
-					hold = check[i].split(" d")		        #Splits them into three.
-					cup.append(re.sub("[^0-9]", "", hold[1]))       #Getting the raw number.
-					bust.append(hold[0].split(" ")[-1][:-1])        #Getting the alphabetical designation.
-			except requests.exceptions.HTTPError as err:			#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
+				check = [line for line in response.splitlines() if check1 in line]		#checking each line. I refuse to use beautifulsoup.
+				for i in range(len(check)):			        #check now contains all the goodies, but has trash.
+					hold = check[i].split(" d")		        #splits them into three.
+					cup.append(re.sub("[^0-9]", "", hold[1]))       #getting the raw number.
+					bust.append(hold[0].split(" ")[-1][:-1])        #getting the alphabetical designation.
+			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err, title='O.H.D.E.A.R.')
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.', title="O.H.D.E.A.R.")
@@ -204,8 +205,14 @@ def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Pro
 		try:
 			endrez = open(filetarget, "r+")
 			break
-		except IOError:
-			sg.popup("File is open, close it first before continuing.")
+		except IOError as e:
+			if e.errno == 2:                                        #File doesn't exist. That's fine, as we are making it next.
+				break
+			elif e.errno == 13:                                     #Permission denied. Most likely because it's opened elsewhere.
+				sg.popup("Permission denied. Is the file still open? And are you allowed to add new files to the folder?")
+			else:                                                   #Should cover my other bases.
+				sg.popup("Unknown error. Fault follows: ", e)
+				sys.exit()
 	wb.save(filetarget)
 
 def main():
@@ -227,7 +234,7 @@ def main():
 	timetotal = time1 + time2							#Final calculation.
 	sg.popup('Done! Now go check your results!')	        			#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
 	print('Finished in', timetotal,'seconds.')					#Felt cute. Might remove later. *cries in cringe*
-
+	
 if __name__ == "__main__":
 	main()										#I caved. Setting up Main. Probably for the best.
 											#Spontaneous failures. Main messed stuff up.
