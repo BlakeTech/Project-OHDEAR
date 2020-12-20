@@ -7,7 +7,6 @@
 #...Please send help.
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
-
 #Defining all the libraries required.
 import sys			#Proper exiting.
 import re			#Regex.
@@ -18,7 +17,7 @@ import json			#Options parser.
 import time			#Timer. Just for benchmarking.
 import wx			#GUI design. Nonstandard Library.
 import PySimpleGUIWx as sg	#WX wrapper. Nonstandard Library.
-from openpyxl import Workbook	#Xlmx file creator/editor, might require Pandas. Nonstandard Library.
+from openpyxl import Workbook	#Xlmx file creator/editor. Nonstandard Library.
 
 #PySimpleGUI Theme
 sg.theme('Purple')
@@ -142,18 +141,18 @@ def reqProcB(tag):								#Requests Busts tag.
 			bustsurl = 'https://paizukan.com/html/'
 			toget = bustsurl + tag
 			check = []
-			check1 = 'data-bust="'					#rating, numerically
+			check1 = 'data-bust="'					#Rating, numerically
 			try:
 				response = requests.get(toget)
-				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
+				response.raise_for_status()			#Untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
 				did = True
 				response = response.text
-				check = [line for line in response.splitlines() if check1 in line]		#checking each line. I refuse to use beautifulsoup.
-				for i in range(len(check)):			        #check now contains all the goodies, but has trash.
-					hold = check[i].split(" d")		        #splits them into three.
-					cup.append(re.sub("[^0-9]", "", hold[1]))       #getting the raw number.
-					bust.append(hold[0].split(" ")[-1][:-1])        #getting the alphabetical designation.
-			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
+				check = [line for line in response.splitlines() if check1 in line]		#Checking each line. I refuse to use beautifulsoup.
+				for i in range(len(check)):			        #Check now contains all the goodies, but has trash.
+					hold = check[i].split(" d")		        #Splits them into three.
+					cup.append(re.sub("[^0-9]", "", hold[1]))       #Getting the raw number.
+					bust.append(hold[0].split(" ")[-1][:-1])        #Getting the alphabetical designation.
+			except requests.exceptions.HTTPError as err:			#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err, title='O.H.D.E.A.R.')
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.', title="O.H.D.E.A.R.")
@@ -228,7 +227,7 @@ def main():
 	timetotal = time1 + time2							#Final calculation.
 	sg.popup('Done! Now go check your results!')	        			#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
 	print('Finished in', timetotal,'seconds.')					#Felt cute. Might remove later. *cries in cringe*
-	
+
 if __name__ == "__main__":
 	main()										#I caved. Setting up Main. Probably for the best.
 											#Spontaneous failures. Main messed stuff up.
