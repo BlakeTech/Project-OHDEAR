@@ -7,6 +7,7 @@
 #...Please send help.
 #O.H.D.E.A.R. Opensource Heuristics for the Determination of Explicit Artwork Ratios
 
+
 #Defining all the libraries required.
 import sys			#Proper exiting.
 import re			#Regex.
@@ -19,7 +20,7 @@ import wx			#GUI design. Nonstandard Library.
 import PySimpleGUIWx as sg	#WX wrapper. Nonstandard Library.
 from openpyxl import Workbook	#Xlmx file creator/editor, might require Pandas. Nonstandard Library.
 
-#PySimpleGUI Themes
+#PySimpleGUI Theme
 sg.theme('Purple')
 
 #DEFining all the functions. Eh? Eh?
@@ -30,19 +31,17 @@ def endfind ():
 	if endtagstat == 'Yes':							#Check endtag status, if we have it or not.
 		sg.popup('Okay. Moving on to series check.', title='O.H.D.E.A.R.')
 	elif endtagstat == None:
-		sg.popup("User closed script. :(")
+		sg.popup("User closed script. :(", title='O.H.D.E.A.R.')
 		sys.exit()
-	else:									#If no, we grab it but the data's messy. IT's also currently not cleaned up.
-		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.', title='O.H.D.E.A.R.')
-		if endtagstat == None or endtagstat:
+	else:									#If no, we grab it but the data's messy, due to the nature of user-tagging. Best we can do, unless it's possible to source any potential sets/ series from fandom pages. Since this is not a guarantee, nor is there a definitive standard for those pages, this is the best I know)
+		endtagstat = sg.popup_get_text('Okay, type in the series name. Put an underscore, _, in place of spaces.')
+		if endtagstat == None or endtagstat == "":
+			sg.popup("User closed script. :(", title="O.H.D.E.A.R.")
 			sys.exit()
 		else:
-			endsaven = endtagstat
-			endtagstat = danend + endtagstat
-			endtagstat = requests.get(endtagstat)
-			endtagstat = endtagstat.text
-			endsave = open(endsaven, 'w')
-			endsave.write(endtagstat)
+			with open(endtagstat + ".txt", "w") as endsave:
+				endtagstat = requests.get(danend + endtagstat)
+				endsave.write(endtagstat.text)
 			sg.popup('Saved the results. Process them as needed, then return! Move the result into the url folder, due to OS differences, this is not able to be auutomated.', title='O.H.D.E.A.R.')
 			sys.exit()
 
@@ -51,19 +50,17 @@ def dirscan ():									#Directory Scan. Used to allow user to locate the file t
 		[sg.InputText(), sg.FileBrowse(file_types=(''), initial_folder='./url')],
 		[sg.Button('Confirm'), sg.Button('Cancel')]]
 	window = sg.Window('O.H.D.A.M.N.', layout)
-	event, values = window.read()
-	conf = False
-	while not conf:
+	while True:
+		event, values = window.read()
 		if not values[0] and not event in (None, 'Cancel'):
-			sg.popup('No file selected. Due to limitations of GUI, script must die.', title='O.H.D.E.A.R.')	#Confirming without selecting file causes the death. Due to poor looping, it causes it to spiral infinitely.
-			sys.exit()
+			sg.popup('No file selected. Please select a file!', title='O.H.D.E.A.R.')
 		elif event in (None, 'Cancel'):
 			sg.popup('User closed script. :(', title='O.H.D.E.A.R.')
 			sys.exit()
 		elif event == 'Confirm':
 			sg.popup('Confirmed!', title='O.H.D.E.A.R.')
 			filechosen = values[0]
-			conf = True
+			break
 	window.close()
 	del window
 	return filechosen
@@ -72,9 +69,12 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 	with open('Options.json') as f:
 		data=json.load(f)
 		if '/' in filechoice:
-			filtchk=filechoice.split('/')[-1]			#Shit. Just realised this is os-specific. Though....
+			filtchk=filechoice.split('/')[-1]			#OS logic, without the os library!
 		elif '\\' in filechoice:
-			filtchk=filechoice.split('\\')[-1]			#That should fix the above. Assuming the escape escapes properly.
+			filtchk=filechoice.split('\\')[-1]
+		else:                                                           #Just in case. Not really something I expect will occur, but hey.
+			sg.popup("No idea what OS you're using. to be safe, the script will die.")
+			sys.exit()
 		busts, end = "", ""
 		if filtchk in data["busts"]:
 			busts = data["busts"][filtchk]
@@ -86,7 +86,7 @@ def setup (filechoice):								#Setup. Might not show up for the end user, depen
 			layout = [[sg.Text('Would you like to add any end tags to your list?')],
 				[sg.InputText()],
 				[sg.Button('Add this!'),sg.Button('Nope!')]]
-			window = sg.Window('O.H.D.A.M.N.', layout)
+			window = sg.Window('O.H.D.A.M.N.', layout, finalize=True)
 			event, values = window.read()
 			if event in (None,'Nope!'):
 				sg.popup('Understood!', title='O.H.D.E.A.R.')
@@ -110,29 +110,31 @@ def reqParse (filechoice, end): 						#Requests url setup here. As well as anyth
 		query = []
 		names = []
 		for line in r:
-			line = line.rstrip("\n")
+			line = line.rstrip("\n")                                #Easier to read. Can be merged to lower line.
 			link = url + line + end
 			query.append(link)
 			names.append(line)
 	return query, names
 
-def reqParseS (infodmp):							#Appending "s" tag.
-	secend = '+rating:s'
-	query = []
-	for line in infodmp:
-		link = line + secend
-		query.append(link)
-	return query
-
 async def Asyncquery(querylist):						#No progress bar on this version, it runs too quick to need it.
-	results = []
+	srclist = querylist
+	list2t = []
+	list3t = []
 	async with aiohttp.ClientSession() as session:
-		responses = await asyncio.gather(*(session.get(url)for url in querylist))	#No idea if i can just break it down like below. Not entirely sure how this works.
-		for i in responses:
-			mdata = await i.text()
-			mdata = int("".join(i for i in mdata if i.isdigit()))			#Instead of replacing all the words out, just keep the numbers. Might be less work.
-			results.append(mdata)
-		return results
+		for i in range(2):
+			results = []
+			responses = await asyncio.gather(*(session.get(url)for url in srclist))	#No idea if i can just break it down like below. Not entirely sure how this works.
+			for i in responses:
+				mdata = await i.text()
+				mdata = int("".join(i for i in mdata if i.isdigit()))			#Instead of replacing all the words out, just keep the numbers. Might be less work.
+				results.append(mdata)
+			if not list2t:
+				list2t = results.copy()
+				templst = [i + "+rating:s" for i in srclist]                            #Not sure if I can directly srclist = list comp here. Does list comp finish before passing, or does it pass while running?
+				srclist = templst
+			else:
+				list3t = results.copy()
+	return list2t, list3t
 
 def reqProcB(tag):								#Requests Busts tag.
 	bust = []		#Alphabet
@@ -140,11 +142,11 @@ def reqProcB(tag):								#Requests Busts tag.
 	did = False
 	if not tag == '':
 		layout = [[sg.Text('Would you like to search for bust size too?')],
-				  [sg.Button('Hell Yes!'), sg.Button('Nah...')]]
-		window = sg.Window('O.H.D.A.M.N.', layout)
+			[sg.Button('Hell Yes!'), sg.Button('Nah...')]]
+		window = sg.Window('O.H.D.A.M.N.', layout, finalize=True)
 		event, garbval = window.read()
 		if event in ('Hell Yes!'):
-			sg.popup_no_wait('Please use this responsibly, as to not DOS attack the server!')
+			sg.popup_quick_message('Please use this responsibly, as to not DOS attack the server!')
 			bustsurl = 'https://paizukan.com/html/'
 			toget = bustsurl + tag
 			check = []
@@ -166,14 +168,14 @@ def reqProcB(tag):								#Requests Busts tag.
 			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
 				sg.popup('Paizukan has returned an error. Skipped. Error code ',err, title='O.H.D.E.A.R.')
 		elif event in (None, 'Nah...'):
-			sg.popup_no_wait('Alright then.')
+			sg.popup('Alright then.', title="O.H.D.E.A.R.")
 		window.close()
 		del window
 	else:
-		sg.popup('Skipping bustcheck as is unsupported.', title='O.H.D.E.A.R.')
+		sg.popup('Skipping bustcheck as it is unsupported.', title='O.H.D.E.A.R.')
 	return bust, cup, did
 
-def pureCalc(v1, v2):								#Purity Calculation.
+def pureCalc(v1, v2):								#Purity Calculation. Should be passed over to excel to deal with it, but alas.
 	purity = []
 	nsfw = []
 	invalnk = False
@@ -192,7 +194,7 @@ def pureCalc(v1, v2):								#Purity Calculation.
 def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Probably could do better, but it works as a sloppy/amateur workaround. Doesn't take long anyways.
 	filetarget = filechoice.replace('url', 'results') + '.xlsx'
 	h1 = ['Character Name']							#...There has to be a better way than this.
-	h2 = ['Total']								#It's a list because for somereason, append only works with lists.
+	h2 = ['Total']								#It's a list because for some reason, append only works with lists.
 	h3 = ['Pure']								#Also, it must be seperate cause otherwise it just appends it one by one downwards.
 	h4 = ['Bust Size']
 	h5 = ['Bust Rank']
@@ -211,6 +213,12 @@ def dictmerge(d1, d2, d3, d4, d5, d6, d7, ckval,filechoice): 			#List Merge. Pro
 		for item in zip(d1,d2,d3,d6,d4,d7,d5):
 			ws.append(item)
 	ws.auto_filter.ref = ws.dimensions
+	while True:                                                             #Just used to check if file is opened elsewhere, and waits until it's been closed.
+		try:
+			endrez = open(filetarget, "r+")
+			break
+		except IOError:
+			sg.popup("File is open, close it first before continuing.")
 	wb.save(filetarget)
 
 def main():
@@ -219,22 +227,20 @@ def main():
 	filechoice = dirscan()								#Series Selector.
 	time1 = time.time()								#Duration timer. Might be removed for compiled version.
 	busts, end = setup(filechoice)							#Setting up the extra bits.
-	query1, list1 = reqParse(filechoice,end)					#Requests Parsing. i.e. prepping for requests to use.
-	list2 = asyncio.run(Asyncquery(query1))						#Progress bar not needed, moves far to quick for it.
-	query2 = reqParseS(query1)							#Appending the requests list. I'm lazy, so I'm just going to reuse the prior requests function.
-	list3 = asyncio.run(Asyncquery(query2))						#Progress bar not needed, moves far too quick for it.
+	query, list1 = reqParse(filechoice,end)					        #Requests Parsing. i.e. prepping for requests to use.
+	list2, list3 = asyncio.run(Asyncquery(query))					#Progress bar not needed, moves far too quick for it.
 	time1 = time.time() - time1							#Time break. User input delay will not be counted. Also, only reason why I'm doing this is to benchmark against my bash script.
 	list7, list4, didchk = reqProcB(busts)						#Busts check. It's all about dem tiddies, innit. *sigh.*
 	time2 = time.time()								#Retriggering time check
 	list5, list6 = pureCalc(list2, list3)						#Purity calculation.
-	dictmerge(list1, list2, list3, list4, list5, list6, list7, didchk, filechoice)	#This is used to merge it all together. The lists hold these values: 1. Name, 2. Total., 3.Pure, 4. BustSize, 5.Purity%, 6. Impure count, 7.Alphanumeric translation.
+	dictmerge(list1, list2, list3, list4, list5, list6, list7, didchk, filechoice)	#This is used to merge it all together. The lists hold these values: 1. Name, 2. Total, 3.Pure count, 4. BustSize, 5.Purity%, 6. Impure count, 7.Alphanumeric translation.
 	time2 = time.time() - time2							#End of timecheck. Script is basically over.
 	time1 = round(time1)								#Time crunching.
 	time2 = round(time2)								#Read above. Side note, I wonder how much larger I've made the script size because of all the tabs....
 	timetotal = time1 + time2							#Final calculation.
-	sg.popup_no_wait('Done! Now go check your results!')					#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
+	sg.popup('Done! Now go check your results!')	        			#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
 	print('Finished in', timetotal,'seconds.')					#Felt cute. Might remove later. *cries in cringe*
-
+	
 if __name__ == "__main__":
 	main()										#I caved. Setting up Main. Probably for the best.
 											#Spontaneous failures. Main messed stuff up.
