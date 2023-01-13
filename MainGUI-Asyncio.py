@@ -114,24 +114,34 @@ def reqParse (filechoice, end): 						#Requests url setup here. As well as anyth
 	return query, names
 
 async def Asyncquery(querylist):						#No progress bar on this version, it runs too quick to need it.
-	srclist = querylist.copy()                                              #Making a copy just in case instead of referring back to it.
+	srclist = []			                                        #Making a copy just in case instead of referring back to it.
 	list2t = []
 	list3t = []
+	list4t = []
+	for i in range (0,len(querylist),8):
+		srclist += [querylist[i:i+8]]
 	async with aiohttp.ClientSession() as session:
-		for i in range(2):                                              #So... to explain the clusterfuck below... I don't even know where to start. Just don't look at it directly in the eye.
+		for urlset in srclist:
+			for iter in range(2):
+#So... to explain the clusterfuck below... I don't even know where to start. Just don't look at it directly in the eye.
 #1. Loops through and gets all the info into a list. 2. Requests the actual info instead of asyncio data and saves it to a list. 3. Cleans up the string and saves it into a list as a int. Stages are by each for loop.
-			results = [int(clnstr.split(":")[2].replace("}}","")) for clnstr in [await retxt.text() for retxt in await asyncio.gather(*(session.get(url)for url in srclist))]]      #Holy fuck this is the longest, ugliest list comprehension I have done. Really emphasizes the "comprehension" part of it.
-			if not list2t:
-				list2t = results.copy()
-				srclist = [i + "+rating:s" for i in srclist]
-			else:
-				list3t = results.copy()
+				results = [clnstr.split(":")[2].replace("}}","") for clnstr in [await retxt.text() for retxt in await asyncio.gather(*(session.get(url)for url in urlset))]]      #Holy fuck this is the longest, ugliest list comprehension I have done. Really emphasizes the "comprehension" part of it.
+				#temp1 = await asyncio.gather(*(session.get(url)for url in urlset))
+				#temp2 = [await retxt.text() for retxt in temp1]
+				#results = [clnstr.split(":")[2].replace("}}","") for clnstr in temp2]
+				if iter == 0:
+					list2t += results.copy()
+					urlset = [i + "+rating:s" for i in urlset]
+				else:
+					list3t += results.copy()
+			await asyncio.sleep(1)
 	return list2t, list3t
 
 def reqProcB(tag):								#Requests Busts tag.
 	bust = []		                                                #Alphabet
 	cup = []		                                                #Raw Number
 	did = False
+	"""
 	if not tag == '':
 		layout = [[sg.Text('Would you like to search for bust size too?')],
 			[sg.Button('Hell Yes!'), sg.Button('Nah...')]]
@@ -142,25 +152,31 @@ def reqProcB(tag):								#Requests Busts tag.
 			bustsurl = 'https://paizukan.com/html/'
 			toget = bustsurl + tag
 			check = []
-			check1 = 'data-bust="'					#rating, numerically
+			check1 = 'data-bust="'							#rating, numerically
 			try:
-				response = requests.get(toget)
-				response.raise_for_status()			#untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
-				did = True
-				response = response.text
-				check = [line for line in response.splitlines() if check1 in line]		#checking each line. I refuse to use beautifulsoup.
-				for i in range(len(check)):			        #check now contains all the goodies, but has trash.
-					hold = check[i].split(" d")		        #splits them into three.
-					cup.append(re.sub("[^0-9]", "", hold[1]))       #getting the raw number.
-					bust.append(hold[0].split(" ")[-1][:-1])        #getting the alphabetical designation.
-			except requests.exceptions.HTTPError as err:		#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
-				sg.popup('Paizukan has returned an error. Skipped. Error code ',err, title='O.H.D.E.A.R.')
+				response = requests.get(toget, allow_redirects=False)
+				redirchk = str(response)					#Untested, but in theory it should test for 401 (or other errors) and if true, send it to except.
+				if "301" in redirchk:
+					sg.popup("Link no longer/doesn't exists. Skipping.")
+				elif "401" in redirchk:
+					sg.popup("Sign in required. Currently Unsupported.")
+				else:
+					did = True
+					response = response.text
+					check = [line for line in response.splitlines() if check1 in line]		#checking each line. I refuse to use beautifulsoup.
+					for i in range(len(check)):			        #check now contains all the goodies, but has trash.
+						hold = check[i].split(" d")		        #splits them into three.
+						cup.append(re.sub("[^0-9]", "", hold[1]))       #getting the raw number.
+						bust.append(hold[0].split(" ")[-1][:-1])        #getting the alphabetical designation.
+			except:									#Temp fix for errors, usually because no auth. Anything else, they changed something on their end.
+				sg.popup('Paizukan has returned an error. Skipped.', title='O.H.D.E.A.R.')
 		elif event in (None, 'Nah...'):
 			sg.popup('Alright then.', title="O.H.D.E.A.R.")
 		window.close()
 		del window
 	else:
 		sg.popup('Skipping bustcheck as it is unsupported.', title='O.H.D.E.A.R.')
+	"""
 	return bust, cup, did
 
 def pureCalc(v1, v2):								#Purity Calculation. Should be passed over to excel to deal with it, but alas.
@@ -169,8 +185,8 @@ def pureCalc(v1, v2):								#Purity Calculation. Should be passed over to excel
 	invalnk = False
 	for t, p in zip(v1, v2):
 		try:
-			purity.append(str(p/t*100))
-			nsfw.append(t-p)
+			purity.append(str(int(p)/int(t)*100))
+			nsfw.append(str(int(t)-int(p)))
 		except ZeroDivisionError:					#Divide-By-Zero catch. Prevents script from breaking by just forcing a 0.
 			purity.append(int(0))
 			nsfw.append(int(0))
@@ -234,7 +250,7 @@ def main():
 	timetotal = time1 + time2							#Final calculation.
 	sg.popup('Done! Now go check your results!')	        			#No comment necessary. < READ WHAT YOU JUST TYPED IN, DUMMY. *smack*
 	print('Finished in', timetotal,'seconds.')					#Felt cute. Might remove later. *cries in cringe*
-	
+
 if __name__ == "__main__":
 	main()										#I caved. Setting up Main. Probably for the best.
 											#Spontaneous failures. Main messed stuff up.
